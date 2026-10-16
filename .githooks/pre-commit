@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Hook de pre-commit: barra arquivos com dado de wardriving (MAC, SSID,
+# coordenadas), banco de dados, chaves de API e prints sem tratamento.
+# Instalado via: git config core.hooksPath .githooks
+set -e
+raiz="$(git rev-parse --show-toplevel)"
+if [ -x "$raiz/.venv/Scripts/python.exe" ]; then
+  exec "$raiz/.venv/Scripts/python.exe" "$raiz/tools/verificar_commit.py"
+elif [ -x "$raiz/.venv/bin/python" ]; then
+  exec "$raiz/.venv/bin/python" "$raiz/tools/verificar_commit.py"
+else
+  exec python3 "$raiz/tools/verificar_commit.py"
+fi
