@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+
+{% block conteudo %}
+<h1>Configurações</h1>
+
+<form method="post" action="{{ url_for('ui.config_salvar') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="grade c2">
+    <div class="cartao">
+      <h2>Pastas de wardriving</h2>
+      <div class="campo"><label for="ward_dirs">uma pasta por linha</label>
+        <textarea id="ward_dirs" name="ward_dirs" rows="4">{{ cfg.ward_dirs | join('\n') }}</textarea></div>
+      <label class="check" style="margin-top:8px">
+        <input type="checkbox" name="auto_import_on_start" value="1" {{ 'checked' if cfg.auto_import_on_start }}>
+        varrer essas pastas automaticamente ao abrir o sistema</label>
+      <p class="solta-baixo">
+        O scan é recursivo e aceita .log, .csv, .txt e .gz. Arquivos já importados não são repetidos.
+      </p>
+    </div>
+
+    <div class="cartao">
+      <h2>Lotes de exportação</h2>
+      <div class="grade c2">
+        <div class="campo"><label for="rows_per_chunk">linhas por arquivo (WiGLE)</label>
+          <input type="number" id="rows_per_chunk" name="rows_per_chunk" value="{{ cfg.export.rows_per_chunk }}" min="100" step="500"></div>
+        <div class="campo"><label for="wdgwars_rows_per_chunk">linhas por arquivo (WDGoWars)</label>
+          <input type="number" id="wdgwars_rows_per_chunk" name="wdgwars_rows_per_chunk" value="{{ cfg.export.wdgwars_rows_per_chunk }}" min="100" step="500"></div>
+        <div class="campo"><label for="wigle_max_mb">tamanho máx. por arquivo — WiGLE (MB)</label>
+          <input type="number" id="wigle_max_mb" name="wigle_max_mb" value="{{ (cfg.export.wigle_max_bytes / 1048576) | round(0) }}" min="1" step="1"></div>
+        <div class="campo"><label for="wdgwars_max_mb">tamanho máx. por arquivo — WDGoWars (MB)</label>
+          <input type="number" id="wdgwars_max_mb" name="wdgwars_max_mb" value="{{ (cfg.export.wdgwars_max_bytes / 1048576) | round(0) }}" min="1" step="1"></div>
+        <div class="campo"><label for="dedupe">duplicatas por padrão</label>
+          <select id="dedupe" name="dedupe">
+            <option value="exact" {{ 'selected' if cfg.export.dedupe == 'exact' }}>remover linhas idênticas</option>
+            <option value="network" {{ 'selected' if cfg.export.dedupe == 'network' }}>1 amostra por rede e sessão</option>
+            <option value="none" {{ 'selected' if cfg.export.dedupe == 'none' }}>manter todas</option>
+          </select></div>
+        <div class="campo"><label for="header_mode">pre-header padrão</label>
+          <select id="header_mode" name="header_mode">
+            <option value="source" {{ 'selected' if cfg.export.header_mode == 'source' }}>do arquivo de origem</option>
+            <option value="profile" {{ 'selected' if cfg.export.header_mode == 'profile' }}>perfil do dispositivo abaixo</option>
+          </select></div>
+      </div>
+      <label class="check"><input type="checkbox" name="gzip_wigle" value="1" {{ 'checked' if cfg.export.gzip_wigle }}>
+        compactar os arquivos do WiGLE em .gz (aceito pelo WiGLE; o WDGoWars recebe CSV cru)</label>
+      <label class="check"><input type="checkbox" name="include_no_gps" value="1" {{ 'checked' if cfg.export.include_no_gps }}>
+        incluir linhas sem GPS nos lotes (o WDGoWars conta isso como no_gps)</label>
+    </div>
+
+    <div class="cartao">
+      <h2>Perfil do dispositivo (pre-header)</h2>
+      <p class="texto-fraco">Usado quando o lote reúne arquivos de aparelhos diferentes.</p>
+      <div class="grade c2">
+        <div class="campo"><label for="device_brand">brand</label>
+          <input type="text" id="device_brand" name="device_brand" value="{{ cfg.device.brand }}"></div>
+        <div class="campo"><label for="device_model">model</label>
+          <input type="text" id="device_model" name="device_model" value="{{ cfg.device.model }}"></div>
+        <div class="campo"><label for="device_device">device</label>
+          <input type="text" id="device_device" name="device_device" value="{{ cfg.device.device }}"></div>
+        <div class="campo"><label for="device_appRelease">appRelease</label>
+          <input type="text" id="device_appRelease" name="device_appRelease" value="{{ cfg.device.appRelease }}"></div>
+        <div class="campo"><label for="device_release">release</label>
+          <input type="text" id="device_release" name="device_release" value="{{ cfg.device.release }}"></div>
+        <div class="campo"><label for="device_display">display</label>
+          <input type="text" id="device_display" name="device_display" value="{{ cfg.device.display }}"></div>
+        <div class="campo"><label for="device_board">board</label>
+          <input type="text" id="device_board" name="device_board" value="{{ cfg.device.board }}"></div>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <h2>Upload e mapa</h2>
+      <div class="grade c2">
+        <div class="campo"><label for="timeout">timeout por upload (segundos)</label>
+          <input type="number" id="timeout" name="timeout" value="{{ cfg.upload.timeout }}" min="30" step="30"></div>
+        <div class="campo"><label for="map_max_points">pontos máximos no mapa</label>
+          <input type="number" id="map_max_points" name="map_max_points" value="{{ cfg.map.max_points }}" min="1000" step="1000"></div>
+        <div class="campo largo"><label for="wigle_base">endpoint WiGLE</label>
+          <input type="text" id="wigle_base" name="wigle_base" value="{{ cfg.upload.wigle_base }}"></div>
+        <div class="campo largo"><label for="wdgwars_base">endpoint WDGoWars</label>
+          <input type="text" id="wdgwars_base" name="wdgwars_base" value="{{ cfg.upload.wdgwars_base }}"></div>
+        <div class="campo"><label for="wigle_donate">WiGLE</label>
+          <select id="wigle_donate" name="wigle_donate">
+            <option value="" {{ 'selected' if not cfg.upload.wigle_donate }}>não doar (donate=false)</option>
+            <option value="1" {{ 'selected' if cfg.upload.wigle_donate }}>doar os dados (donate=true)</option>
+          </select></div>
+      </div>
+      <label class="check" style="margin-top:8px">
+        <input type="checkbox" name="dry_run_default" value="1" {{ 'checked' if cfg.upload.dry_run_default }}>
+        marcar “simulação” por padrão nos envios</label>
+      <p class="solta-baixo">
+        Os endereços são configuráveis para testes locais (por exemplo, um servidor de ensaio que imita
+        as respostas dos dois serviços).
+      </p>
+    </div>
+  </div>
+
+  <div class="linha-botoes" style="margin-top:14px">
+    <button type="submit" class="principal">Salvar configurações</button>
+    <a class="botao" href="{{ url_for('ui.config_page') }}">Descartar</a>
+  </div>
+</form>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Onde ficam as coisas</h2>
+  <ul class="lista-limpa">
+    <li><span>Banco de dados</span><span class="mono texto-fraco">data/wardrive.db</span></li>
+    <li><span>Lotes exportados</span><span class="mono texto-fraco">data/exports/&lt;data&gt;_&lt;destino&gt;_&lt;rótulo&gt;/</span></li>
+    <li><span>Preferências</span><span class="mono texto-fraco">data/settings.json</span></li>
+    <li><span>Chaves de API</span><span class="mono texto-fraco">data/secrets.json</span></li>
+  </ul>
+</div>
+{% endblock %}

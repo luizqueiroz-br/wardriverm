@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}Atividade{% endblock %}
+
+{% block conteudo %}
+<h1>Atividade</h1>
+
+<div class="grade c2">
+  <div class="cartao">
+    <h2>Tarefas desta sessão</h2>
+    {% if jobs %}
+      <div class="pilha">
+      {% for j in jobs %}
+        <div class="cartao compacto">
+          <div class="linha-botoes" style="justify-content:space-between">
+            <span><b>{{ j.label }}</b> <span class="texto-fraco">· {{ j.kind }} · {{ j.id }}</span></span>
+            <span class="etiqueta {{ 'ok' if j.status == 'ok' else ('erro' if j.status == 'erro' else '') }}">{{ j.status }}</span>
+          </div>
+          <div class="solta-baixo">
+            criada {{ j.created_at }}{% if j.started_at %} · início {{ j.started_at }}{% endif %}
+            {% if j.finished_at %} · fim {{ j.finished_at }}{% endif %}
+            {% if j.progress.total %} · {{ j.progress.done }}/{{ j.progress.total }} {{ j.progress.unit }}{% endif %}
+          </div>
+          {% if j.error %}<div class="aviso erro" style="margin-top:8px">{{ j.error }}</div>{% endif %}
+          {% if j.log %}
+            <details><summary>ver log ({{ j.log | length }} linhas)</summary>
+              <pre class="joblog">{% for l in j.log %}{{ l.ts }}  {{ l.msg }}
+{% endfor %}</pre>
+            </details>
+          {% endif %}
+        </div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <p class="texto-fraco" style="margin:0">
+        Nenhuma tarefa nesta sessão. As tarefas em memória desaparecem quando o servidor é reiniciado —
+        o histórico permanente de uploads fica na aba Uploads.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Registro permanente</h2>
+    {% if eventos %}
+      <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>quando</th><th>nível</th><th>origem</th><th>mensagem</th></tr></thead>
+        <tbody>
+          {% for e in eventos %}
+          <tr>
+            <td class="mono">{{ e.ts }}</td>
+            <td><span class="etiqueta {{ 'erro' if e.level == 'erro' else '' }}">{{ e.level }}</span></td>
+            <td class="texto-fraco">{{ e.source }}</td>
+            <td>{{ e.message }}{% if e.detail %}<div class="solta-baixo mono">{{ e.detail }}</div>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p class="texto-fraco" style="margin:0">Sem eventos registrados.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

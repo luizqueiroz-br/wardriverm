@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Erro {{ codigo }}{% endblock %}
+
+{% block conteudo %}
+<div class="cartao" style="margin-top:40px">
+  <h2>Erro {{ codigo }}</h2>
+  <p>{{ mensagem }}</p>
+  <div class="linha-botoes">
+    <a class="botao principal" href="{{ url_for('ui.dashboard') }}">Voltar ao painel</a>
+  </div>
+</div>
+{% endblock %}

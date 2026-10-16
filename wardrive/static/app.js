@@ -1,0 +1,201 @@
+/* Wardrive Manager — utilitários de interface (tarefas em segundo plano,
+   upload por arrastar-e-soltar e mapa). Sem dependências externas. */
+(function () {
+  "use strict";
+
+  const csrf = document.body.dataset.csrf || "";
+
+  async function api(url, options) {
+    const opts = Object.assign({ headers: {} }, options || {});
+    if (opts.method && opts.method !== "GET") {
+      opts.headers["X-CSRF-Token"] = csrf;
+    }
+    const resp = await fetch(url, opts);
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    return resp.json();
+  }
+
+  /* ------------------------------------------------------------- jobbar */
+  const bar = document.getElementById("jobbar");
+  const rotulo = document.getElementById("job-rotulo");
+  const preenche = document.getElementById("job-barra");
+  const numeros = document.getElementById("job-numeros");
+  const log = document.getElementById("job-log");
+  const toggle = document.getElementById("job-toggle");
+  let ultimoJob = null;
+
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      log.hidden = !log.hidden;
+      if (!log.hidden && ultimoJob) renderLog(ultimoJob);
+    });
+  }
+
+  function renderLog(job) {
+    if (!job || !job.log) return;
+    log.textContent = job.log.map((l) => `${l.ts}  ${l.msg}`).join("\n");
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function acompanhar() {
+    let dados;
+    try {
+      dados = await api("/api/jobs");
+    } catch (err) {
+      return;
+    }
+    const ativo = (dados.jobs || []).find((j) => j.status === "rodando" || j.status === "na fila");
+    const alvo = ativo || (dados.jobs || [])[0];
+    if (!alvo || (alvo.status === "ok" && !bar.dataset.finalizado)) {
+      if (!ativo) {
+        bar.hidden = true;
+        return;
+      }
+    }
+    bar.hidden = false;
+    ultimoJob = alvo;
+    rotulo.textContent = `${alvo.label} — ${alvo.status}`;
+    const p = alvo.progress || {};
+    preenche.style.width = (p.percent || 0) + "%";
+    numeros.textContent = p.total ? `${p.done}/${p.total} ${p.unit}` : "";
+    if (!log.hidden) renderLog(alvo);
+    if (alvo.status === "ok") {
+      const recarregar = sessionStorage.getItem("job-visto") !== alvo.id;
+      sessionStorage.setItem("job-visto", alvo.id);
+      if (recarregar && p.total) {
+        setTimeout(() => location.reload(), 900);
+      }
+    }
+  }
+  if (bar) {
+    acompanhar();
+    setInterval(acompanhar, 2000);
+  }
+
+  /* ------------------------------------------------- upload arrastar/soltar */
+  const zona = document.querySelector(".dropzone");
+  const entrada = document.getElementById("entrada-arquivos");
+  if (zona && entrada) {
+    const enviar = async (arquivos) => {
+      if (!arquivos.length) return;
+      const dados = new FormData();
+      for (const arq of arquivos) dados.append("arquivos", arq, arq.name);
+      zona.textContent = `Enviando ${arquivos.length} arquivo(s)…`;
+      try {
+        const resp = await api("/api/importar", { method: "POST", body: dados });
+        zona.textContent = `${resp.novos} importado(s), ${resp.ignorados} ignorado(s), ${resp.erros} erro(s).`;
+        setTimeout(() => location.reload(), 1200);
+      } catch (err) {
+        zona.textContent = "Falha no envio: " + err.message;
+      }
+    };
+    zona.addEventListener("click", () => entrada.click());
+    entrada.addEventListener("change", () => enviar(Array.from(entrada.files)));
+    ["dragenter", "dragover"].forEach((ev) =>
+      zona.addEventListener(ev, (e) => {
+        e.preventDefault();
+        zona.classList.add("arrastando");
+      })
+    );
+    ["dragleave", "drop"].forEach((ev) =>
+      zona.addEventListener(ev, (e) => {
+        e.preventDefault();
+        zona.classList.remove("arrastando");
+      })
+    );
+    zona.addEventListener("drop", (e) => enviar(Array.from(e.dataTransfer.files)));
+  }
+
+  /* ------------------------------------------------------------ confirmações */
+  document.querySelectorAll("form[data-confirmar]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      if (!confirm(form.dataset.confirmar)) e.preventDefault();
+    });
+  });
+
+  /* -------------------------------------------------------------- mapa */
+  const alvoMapa = document.getElementById("mapa");
+  let wardriveMapa = null;
+  if (alvoMapa && window.L) {
+    const centro = [-15.79, -47.88];
+    const mapa = L.map("mapa", { preferCanvas: true }).setView(centro, 11);
+    wardriveMapa = mapa;
+    window.wardriveMapa = mapa;   // exposto para depuração e para o ajuste de tamanho abaixo
+    // o contêiner pode ser medido antes do CSS/Layout terminar: sem isso o
+    // fitBounds calcula o zoom com um tamanho errado e o mapa fica afastado demais
+    mapa.whenReady(() => setTimeout(() => mapa.invalidateSize(), 250));
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap',
+    }).addTo(mapa);
+
+    const cores = { WIFI: "#4ad295", BLE: "#7aa2ff", BT: "#a98bff" };
+    const grupo = L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 45 }) : L.layerGroup();
+    mapa.addLayer(grupo);
+
+    function cor(tipo) {
+      return cores[tipo] || "#ffb454";
+    }
+
+    function raio(rssi) {
+      const r = Number(rssi);
+      if (!isFinite(r)) return 4;
+      return Math.max(3, Math.min(9, 4 + (r + 100) / 12));
+    }
+
+    async function carregar() {
+      const form = document.getElementById("form-mapa");
+      const params = new URLSearchParams(new FormData(form));
+      grupo.clearLayers();
+      const dados = await api("/api/mapa/pontos?" + params.toString());
+      const limites = [];
+      (dados.pontos || []).forEach((p) => {
+        if (p.lat == null || p.lon == null) return;
+        const marcador = L.circleMarker([p.lat, p.lon], {
+          radius: raio(p.rssi),
+          color: cor(p.type),
+          weight: 1,
+          fillColor: cor(p.type),
+          fillOpacity: 0.55,
+        });
+        const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
+        marcador.bindPopup(
+          `<b>${ssid}</b><br><span style="font-family:monospace">${p.mac}</span><br>` +
+            `tipo: ${p.type} · RSSI: ${p.rssi ?? "?"} dBm<br>` +
+            `canal: ${p.channel ?? "?"} · ${p.first_seen || ""}<br>` +
+            `<span style="opacity:.7">${p.obs_count > 1 ? p.obs_count + " observações" : ""}</span>`
+        );
+        grupo.addLayer(marcador);
+        limites.push([p.lat, p.lon]);
+      });
+      if (limites.length) {
+        const lat = parseFloat(alvoMapa.dataset.lat);
+        const lon = parseFloat(alvoMapa.dataset.lon);
+        mapa.invalidateSize();
+        if (isFinite(lat) && isFinite(lon)) {
+          mapa.setView([lat, lon], 17);
+        } else {
+          const caixa = L.latLngBounds(limites);
+          // quando todos os pontos estão no mesmo quarteirão, o fitBounds pediria
+          // um zoom absurdo: 17 é o limite útil para leitura
+          mapa.setView(caixa.getCenter(), Math.min(17, mapa.getBoundsZoom(caixa)));
+        }
+      }
+      const info = document.getElementById("mapa-info");
+      if (info) {
+        info.textContent = `${dados.total} ponto(s) exibido(s)` + (dados.truncado
+          ? ` — limitado a ${dados.limite}; refine os filtros para ver o resto`
+          : "");
+      }
+    }
+
+    const formMapa = document.getElementById("form-mapa");
+    if (formMapa) {
+      formMapa.addEventListener("submit", (e) => {
+        e.preventDefault();
+        carregar();
+      });
+    }
+    carregar();
+  }
+})();

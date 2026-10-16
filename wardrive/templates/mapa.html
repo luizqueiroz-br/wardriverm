@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Mapa{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+{% endblock %}
+
+{% block conteudo %}
+<h1>Mapa das coletas</h1>
+
+<form class="filtros" id="form-mapa" method="get" action="{{ url_for('ui.mapa') }}">
+  <div class="campo"><label for="modo">exibir</label>
+    <select id="modo" name="modo">
+      <option value="observacoes">cada observação</option>
+      <option value="redes">uma por rede (melhor sinal)</option>
+    </select></div>
+  <div class="campo"><label for="sessao">sessões (Ctrl+clique)</label>
+    <select id="sessao" name="sessao" multiple size="1" style="min-width:220px">
+      {% for s in sessoes %}
+        <option value="{{ s.id }}" {{ 'selected' if request.args.getlist('sessao') and s.id|string in request.args.getlist('sessao') }}>{{ s.name }} ({{ s.obs_count }})</option>
+      {% endfor %}
+    </select></div>
+  <div class="campo"><label for="de">de</label><input type="date" id="de" name="de" value="{{ request.args.get('de','') }}"></div>
+  <div class="campo"><label for="ate">até</label><input type="date" id="ate" name="ate" value="{{ request.args.get('ate','') }}"></div>
+  <div class="campo"><label for="limite">limite de pontos</label>
+    <input type="number" id="limite" name="limite" value="{{ request.args.get('limite','20000') }}" min="100" step="1000"></div>
+  <label class="check"><input type="checkbox" name="tipo" value="WIFI" checked> Wi-Fi</label>
+  <label class="check"><input type="checkbox" name="tipo" value="BLE" checked> BLE</label>
+  <label class="check"><input type="checkbox" name="tipo" value="BT"> BT</label>
+  <div class="campo"><label>&nbsp;</label><button type="submit" class="principal">Aplicar</button></div>
+</form>
+
+<div id="mapa"
+     data-lat="{{ request.args.get('lat', '') }}"
+     data-lon="{{ request.args.get('lon', '') }}"></div>
+<div class="legenda">
+  <span><i style="background:#4ad295"></i>Wi-Fi</span>
+  <span><i style="background:#7aa2ff"></i>BLE / Bluetooth LE</span>
+  <span><i style="background:#a98bff"></i>Bluetooth clássico</span>
+  <span><i style="background:#ffb454"></i>celular</span>
+  <span id="mapa-info" class="texto-fraco"></span>
+</div>
+<p class="solta-baixo">
+  Os pontos vêm do seu banco local. O tamanho do círculo acompanha o RSSI.
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // o base.html já carrega static/app.js depois deste bloco; o mapa usa o Leaflet
+  // carregado no <head>, então nada a fazer aqui além de manter a ordem.
+</script>
+{% endblock %}

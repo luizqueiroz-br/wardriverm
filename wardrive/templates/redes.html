@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titulo %}Redes{% endblock %}
+
+{% block conteudo %}
+<h1>Redes descobertas <span class="texto-fraco">({{ page.total }})</span></h1>
+
+<form class="filtros" method="get" action="{{ url_for('ui.redes') }}">
+  <div class="campo largo"><label for="q">SSID ou MAC</label>
+    <input type="search" id="q" name="q" value="{{ args.q }}" placeholder="ex.: CLARO, 58:2F:F7"></div>
+  <div class="campo"><label for="tipo">tipo</label>
+    <select id="tipo" name="tipo">
+      <option value="">todos</option>
+      {% for item in meta.types %}
+        <option value="{{ item.type }}" {{ 'selected' if args.tipo == item.type }}>{{ item.type }} ({{ item.c }})</option>
+      {% endfor %}
+    </select></div>
+  <div class="campo"><label for="auth">segurança</label>
+    <input type="text" id="auth" name="auth" value="{{ args.auth }}" placeholder="WPA2, OPEN…"></div>
+  <div class="campo"><label for="de">visto de</label><input type="date" id="de" name="de" value="{{ args.de }}"></div>
+  <div class="campo"><label for="ate">até</label><input type="date" id="ate" name="ate" value="{{ args.ate }}"></div>
+  <div class="campo"><label for="ordem">ordenar</label>
+    <select id="ordem" name="ordem">
+      <option value="obs" {{ 'selected' if args.ordem in ('', 'obs') }}>mais observações</option>
+      <option value="recente" {{ 'selected' if args.ordem == 'recente' }}>visto por último</option>
+      <option value="primeiro" {{ 'selected' if args.ordem == 'primeiro' }}>primeira detecção</option>
+      <option value="rssi" {{ 'selected' if args.ordem == 'rssi' }}>sinal mais forte</option>
+      <option value="sessoes" {{ 'selected' if args.ordem == 'sessoes' }}>nº de sessões</option>
+      <option value="ssid" {{ 'selected' if args.ordem == 'ssid' }}>SSID (A-Z)</option>
+      <option value="mac" {{ 'selected' if args.ordem == 'mac' }}>MAC</option>
+    </select></div>
+  <label class="check"><input type="checkbox" name="sem_ssid" value="1" {{ 'checked' if args.sem_ssid }}> somente SSID oculto</label>
+  <div class="campo"><label>&nbsp;</label><button type="submit">Filtrar</button></div>
+  <div class="campo"><label>&nbsp;</label><a class="botao" href="{{ url_for('ui.redes') }}">Limpar</a></div>
+</form>
+
+<div class="cartao">
+{% if redes %}
+<div class="tabela-rolagem">
+<table>
+  <thead>
+    <tr>
+      <th>SSID</th><th>MAC</th><th>tipo</th><th>segurança</th>
+      <th class="num">RSSI máx</th><th class="num">obs</th><th class="num">sessões</th>
+      <th>primeira vez</th><th>última vez</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in redes %}
+    <tr>
+      <td>{{ r.ssid or '<span class="texto-fraco">(oculto)</span>'|safe }}</td>
+      <td class="mono"><a href="{{ url_for('ui.rede_detalhe', mac=r.mac) }}">{{ r.mac }}</a></td>
+      <td><span class="etiqueta {{ r.type }}">{{ r.type }}</span></td>
+      <td class="mono texto-fraco">{{ r.auth_mode }}</td>
+      <td class="num">{{ r.best_rssi if r.best_rssi is not none else '—' }}</td>
+      <td class="num">{{ r.obs_count }}</td>
+      <td class="num">{{ r.file_count }}</td>
+      <td class="mono">{{ r.first_seen }}</td>
+      <td class="mono">{{ r.last_seen }}</td>
+      <td>
+        <div class="linha-botoes">
+          {% if r.best_lat is not none %}
+            <a class="botao mini" href="{{ url_for('ui.mapa') }}?lat={{ r.best_lat }}&lon={{ r.best_lon }}&mac={{ r.mac }}">mapa</a>
+          {% endif %}
+          <form method="post" action="{{ url_for('ui.exportar_criar') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="mode" value="all">
+            <input type="hidden" name="date_from" value="{{ r.first_seen[:10] }}">
+            <input type="hidden" name="date_to" value="{{ r.last_seen[:10] }}">
+            <input type="hidden" name="with_gps_only" value="1">
+            <input type="hidden" name="dedupe" value="exact">
+            <input type="hidden" name="label" value="janela-{{ r.mac }}">
+            <button type="submit" name="target" value="wigle" class="mini" title="Exportar a janela de tempo desta rede">CSV</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="paginacao">
+  {% if page.pagina > 1 %}
+    <a href="{{ url_for('ui.redes', q=args.q, tipo=args.tipo, auth=args.auth, de=args.de, ate=args.ate, ordem=args.ordem, sem_ssid=args.sem_ssid, pagina=page.pagina-1) }}">← anterior</a>
+  {% endif %}
+  <span>página {{ page.pagina }} de {{ page.paginas }}</span>
+  {% if page.pagina < page.paginas %}
+    <a href="{{ url_for('ui.redes', q=args.q, tipo=args.tipo, auth=args.auth, de=args.de, ate=args.ate, ordem=args.ordem, sem_ssid=args.sem_ssid, pagina=page.pagina+1) }}">próxima →</a>
+  {% endif %}
+</div>
+{% else %}
+<p class="texto-fraco" style="margin:0">Nenhuma rede para os filtros escolhidos.</p>
+{% endif %}
+</div>
+{% endblock %}

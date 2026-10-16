@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block titulo %}Uploads{% endblock %}
+
+{% block conteudo %}
+<h1>Uploads</h1>
+
+<div class="grade c2">
+  <div class="cartao">
+    <h2>Chaves de API</h2>
+    <p class="texto-fraco">
+      As chaves ficam em <code>data/secrets.json</code>, fora do banco e nunca aparecem de volta na tela.
+      Também é possível defini-las nas variáveis de ambiente
+      <code>WIGLE_API_NAME</code>, <code>WIGLE_API_TOKEN</code> e <code>WDGWARS_API_KEY</code>.
+      {% if chaves.de_env %}<br><b>Uma chave veio do ambiente</b> e tem prioridade sobre o arquivo.{% endif %}
+    </p>
+
+    <div class="linha-botoes" style="margin-bottom:12px">
+      <span class="pill-chave {{ 'ok' if chaves.wigle_name and chaves.wigle_token else 'falta' }}">
+        WiGLE: {{ chaves.wigle_name or 'sem nome de API' }} / {{ chaves.wigle_token or 'sem token' }}</span>
+      <span class="pill-chave {{ 'ok' if chaves.wdgwars else 'falta' }}">
+        WDGoWars: {{ chaves.wdgwars or 'sem chave' }}</span>
+    </div>
+
+    <form method="post" action="{{ url_for('ui.uploads_salvar_chaves') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="grade c2">
+        <div class="campo"><label for="wigle_api_name">WiGLE — nome da API</label>
+          <input type="text" id="wigle_api_name" name="wigle_api_name" autocomplete="off"
+                 placeholder="em wigle.net/account"></div>
+        <div class="campo"><label for="wigle_api_token">WiGLE — token (ou string “Encoded for use”)</label>
+          <input type="password" id="wigle_api_token" name="wigle_api_token" autocomplete="off"
+                 placeholder="cole o token"></div>
+        <div class="campo"><label for="wdgwars_api_key">WDGoWars — chave de API (64 hex)</label>
+          <input type="password" id="wdgwars_api_key" name="wdgwars_api_key" autocomplete="off"
+                 placeholder="perfil em wdgwars.pl"></div>
+      </div>
+      <div class="linha-botoes" style="margin-top:12px">
+        <button type="submit" class="principal">Salvar chaves</button>
+        <label class="check"><input type="checkbox" name="apagar_wigle" value="1"> apagar credenciais WiGLE</label>
+        <label class="check"><input type="checkbox" name="apagar_wdgwars" value="1"> apagar chave WDGoWars</label>
+      </div>
+    </form>
+
+    <div class="linha-botoes" style="margin-top:12px">
+      <form method="post" action="{{ url_for('ui.uploads_validar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="target" value="wigle">
+        <button type="submit">Testar credencial WiGLE</button>
+      </form>
+      <form method="post" action="{{ url_for('ui.uploads_validar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="target" value="wdgwars">
+        <button type="submit">Testar chave WDGoWars</button>
+      </form>
+      <span class="solta-baixo">o teste faz uma chamada somente-leitura nos dois serviços</span>
+    </div>
+  </div>
+
+  <div class="cartao">
+    <h2>Exportar e enviar em um passo</h2>
+    <form method="post" action="{{ url_for('ui.uploads_enviar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="grade c2">
+        <div class="campo"><label for="target">destino</label>
+          <select id="target" name="target">
+            <option value="wigle">WiGLE (wigle.net)</option>
+            <option value="wdgwars">WDGoWars (wdgwars.pl)</option>
+          </select></div>
+        <div class="campo"><label for="mode">seleção</label>
+          <select id="mode" name="mode">
+            <option value="new">somente o que ainda não subiu (incremental)</option>
+            <option value="all">tudo que está no banco</option>
+            <option value="files">sessões escolhidas</option>
+          </select></div>
+        <div class="campo"><label for="de">coleta de</label><input type="date" id="de" name="date_from"></div>
+        <div class="campo"><label for="ate">até</label><input type="date" id="ate" name="date_to"></div>
+        <div class="campo"><label for="dedupe">duplicatas</label>
+          <select id="dedupe" name="dedupe">
+            <option value="exact">remover linhas idênticas</option>
+            <option value="network">1 amostra por rede e sessão</option>
+            <option value="none">todas as linhas</option>
+          </select></div>
+        <div class="campo"><label for="label">rótulo</label>
+          <input type="text" id="label" name="label" placeholder="ex.: 15-out-noite"></div>
+        <label class="check"><input type="checkbox" name="types" value="WIFI" checked> Wi-Fi</label>
+        <label class="check"><input type="checkbox" name="types" value="BLE" checked> BLE</label>
+        <label class="check"><input type="checkbox" name="types" value="BT"> BT</label>
+        <label class="check"><input type="checkbox" name="with_gps_only" value="1" checked> somente com GPS</label>
+      </div>
+      <div class="campo" style="margin-top:10px"><label for="file_ids">sessões</label>
+        <select id="file_ids" name="file_ids" multiple size="5" style="width:100%">
+          {% for s in sessoes %}
+            <option value="{{ s.id }}">{{ s.name }} — {{ s.obs_count }} obs</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="linha-botoes" style="margin-top:12px">
+        <label class="check"><input type="checkbox" name="dry_run" value="1" {{ 'checked' if settings.upload.dry_run_default }}> simulação (gera o lote e não envia)</label>
+        <button type="submit" class="principal">Executar</button>
+      </div>
+      <p class="solta-baixo">
+        Fila pendente: {{ resumo.pendentes.wigle }} linhas para WiGLE · {{ resumo.pendentes.wdgwars }} para WDGoWars.
+        O lote é criado em <code>data/exports/</code> antes do envio, então você pode conferir ou subir depois com o curl.
+      </p>
+    </form>
+
+    <h3 style="margin-top:16px">Reenviar um lote já gerado</h3>
+    <form method="post" action="{{ url_for('ui.uploads_enviar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="grade c2">
+        <div class="campo"><label for="export_id">lote</label>
+          <select id="export_id" name="export_id">
+            {% for e in exports %}
+              <option value="{{ e.id }}">#{{ e.id }} · {{ e.target }} · {{ e.row_count }} linhas · {{ e.label or 'sem rótulo' }}</option>
+            {% endfor %}
+          </select></div>
+        <div class="campo"><label for="target2">destino</label>
+          <select id="target2" name="target">
+            <option value="wigle">WiGLE</option>
+            <option value="wdgwars">WDGoWars</option>
+          </select></div>
+      </div>
+      <div class="linha-botoes" style="margin-top:10px">
+        <label class="check"><input type="checkbox" name="dry_run" value="1"> simulação</label>
+        <button type="submit">Reenviar lote</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Histórico ({{ total }})</h2>
+  {% if uploads %}
+  <div class="tabela-rolagem">
+  <table>
+    <thead>
+      <tr><th>quando</th><th>destino</th><th>arquivo</th><th class="num">linhas</th><th>situação</th>
+          <th class="num">HTTP</th><th>referência</th><th>resposta do servidor</th></tr>
+    </thead>
+    <tbody>
+      {% for u in uploads %}
+      <tr>
+        <td class="mono">{{ u.created_at }}</td>
+        <td>{{ targets[u.target].label if u.target in targets else u.target }}</td>
+        <td class="mono">{{ u.filename }}{% if u.export_label %} <span class="texto-fraco">#{{ u.export_id }}</span>{% endif %}</td>
+        <td class="num">{{ u.rows }}</td>
+        <td>
+          <span class="etiqueta {{ u.status }}">{{ u.status }}</span>
+          {% if u.dry_run %} <span class="etiqueta simulado">simulação</span>{% endif %}
+        </td>
+        <td class="num">{{ u.http_status or '—' }}</td>
+        <td class="mono">{{ u.target_ref or '—' }}</td>
+        <td class="texto-fraco">{{ u.message }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="texto-fraco" style="margin:0">Nenhum envio registrado. O primeiro clique é sempre uma simulação —
+      ela cria o lote e mostra exatamente o que iria, sem tocar nos servidores.</p>
+  {% endif %}
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>O que cada serviço responde</h2>
+  <div class="grade c2">
+    <div>
+      <h3>WiGLE</h3>
+      <ul class="lista-limpa">
+        <li><span>Endpoint</span><span class="mono texto-fraco">POST /api/v2/file/upload</span></li>
+        <li><span>Autenticação</span><span class="texto-fraco">Basic (nome da API : token)</span></li>
+        <li><span>Limite</span><span class="texto-fraco">≈40 MB por arquivo (.gz avaliado descomprimido)</span></li>
+        <li><span>Resposta</span><span class="texto-fraco">transid + quantidade de redes aceitas</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3>WDGoWars</h3>
+      <ul class="lista-limpa">
+        <li><span>Endpoint</span><span class="mono texto-fraco">POST /endpoint/upload-csv</span></li>
+        <li><span>Autenticação</span><span class="texto-fraco">cabeçalho X-API-Key</span></li>
+        <li><span>Limite</span><span class="texto-fraco">15 MB por request · processamento síncrono (timeout 120 s)</span></li>
+        <li><span>Resposta</span><span class="texto-fraco">imported / duplicates / no_gps / bad_rows / merged_samples</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

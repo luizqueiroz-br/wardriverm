@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block titulo %}{{ network.mac }}{% endblock %}
+
+{% block conteudo %}
+<h1>{{ network.ssid or '(SSID oculto)' }} <span class="mono texto-fraco" style="font-size:15px">{{ network.mac }}</span></h1>
+
+<div class="grade c4">
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Tipo</div>
+    <div class="valor" style="font-size:20px"><span class="etiqueta {{ network.type }}">{{ network.type }}</span></div>
+    <div class="sub">segurança: {{ network.auth_mode or '—' }}</div>
+  </div>
+  <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">Observações</div>
+    <div class="valor">{{ network.obs_count }}</div>
+    <div class="sub">em {{ network.file_count }} sessão(ões) · {{ network.gps_count }} com GPS</div>
+  </div>
+  <div class="cartao compacto kpi-azul">
+    <div class="titulo-kpi">Sinal mais forte</div>
+    <div class="valor">{{ network.best_rssi if network.best_rssi is not none else '—' }}<span style="font-size:14px"> dBm</span></div>
+    <div class="sub">primeiro contato {{ network.first_seen }}</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Coordenada de referência</div>
+    <div class="valor" style="font-size:15px">
+      {% if network.best_lat is not none %}{{ '%.6f'|format(network.best_lat) }}<br>{{ '%.6f'|format(network.best_lon) }}{% else %}—{% endif %}
+    </div>
+    <div class="sub">
+      {% if network.best_lat is not none %}
+        <a href="{{ url_for('ui.mapa') }}?lat={{ network.best_lat }}&lon={{ network.best_lon }}&mac={{ network.mac }}">abrir no mapa</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grade c2" style="margin-top:14px">
+  <div class="cartao">
+    <h2>Todos os nomes vistos neste MAC</h2>
+    <ul class="lista-limpa">
+      {% for s in ssids %}
+        <li><span>{{ s.ssid or '(vazio)' }}</span><span class="texto-fraco">{{ s.c }}×</span></li>
+      {% endfor %}
+    </ul>
+    <p class="solta-baixo">Nomes repetidos indicam troca de SSID no mesmo ponto de acesso.</p>
+  </div>
+  <div class="cartao">
+    <h2>Resumo para exportação</h2>
+    <p class="texto-fraco">
+      O CSV gerado usa o cabeçalho completo WiGLE 1.6 e o pre-header do arquivo de origem.
+      Redes sem coordenada válida não são enviadas, a menos que você habilite o envio sem GPS na configuração.
+    </p>
+    <form method="post" action="{{ url_for('ui.exportar_criar') }}" class="linha-botoes">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="mode" value="all">
+      <input type="hidden" name="date_from" value="{{ (network.first_seen or '')[:10] }}">
+      <input type="hidden" name="date_to" value="{{ (network.last_seen or '')[:10] }}">
+      <input type="hidden" name="with_gps_only" value="1">
+      <input type="hidden" name="dedupe" value="exact">
+      <input type="hidden" name="label" value="janela-{{ network.mac }}">
+      <button type="submit" name="target" value="wigle" class="principal">CSV WiGLE da janela</button>
+      <button type="submit" name="target" value="wdgwars" class="principal">CSV WDGoWars da janela</button>
+    </form>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Observações ({{ observations | length }})</h2>
+  <div class="tabela-rolagem">
+  <table>
+    <thead>
+      <tr><th>visto em</th><th>sessão</th><th class="num">canal</th><th class="num">MHz</th>
+          <th class="num">RSSI</th><th>lat</th><th>lon</th><th class="num">alt</th><th class="num">prec.</th><th>AuthMode</th></tr>
+    </thead>
+    <tbody>
+      {% for o in observations %}
+      <tr>
+        <td class="mono">{{ o.first_seen }}</td>
+        <td><a href="{{ url_for('ui.sessao_detalhe', file_id=o.file_id) }}">{{ o.file_name }}</a></td>
+        <td class="num">{{ o.channel if o.channel is not none else '—' }}</td>
+        <td class="num">{{ o.frequency or '—' }}</td>
+        <td class="num">{{ o.rssi if o.rssi is not none else '—' }}</td>
+        <td class="mono">{{ '%.6f'|format(o.lat) if o.has_gps else '—' }}</td>
+        <td class="mono">{{ '%.6f'|format(o.lon) if o.has_gps else '—' }}</td>
+        <td class="num">{{ o.altitude if o.altitude is not none else '—' }}</td>
+        <td class="num">{{ o.accuracy if o.accuracy is not none else '—' }}</td>
+        <td class="mono texto-fraco">{{ o.auth_mode }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

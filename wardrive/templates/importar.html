@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block titulo %}Importar{% endblock %}
+
+{% block conteudo %}
+<h1>Importar dados de wardriving</h1>
+
+<div class="grade c2">
+  <div class="cartao">
+    <h2>Enviar arquivos do computador</h2>
+    <div class="dropzone">Arraste os arquivos (.log, .csv, .gz) aqui ou clique para escolher</div>
+    <input type="file" id="entrada-arquivos" multiple accept=".log,.csv,.txt,.gz,.wiglecsv" hidden>
+    <p class="solta-baixo" style="margin-top:10px">
+      Os arquivos são lidos no seu computador e gravados no banco local. Arquivos já importados
+      (mesmo conteúdo e nome) são ignorados automaticamente.
+    </p>
+  </div>
+
+  <div class="cartao">
+    <h2>Varrer pastas</h2>
+    <form method="post" action="{{ url_for('ui.importar_scan') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="campo"><label for="dirs">pastas (uma por linha)</label>
+        <textarea id="dirs" name="dirs" rows="4">{{ pastas | join('\n') }}</textarea></div>
+      <label class="check" style="margin-top:8px">
+        <input type="checkbox" name="force" value="1"> reimportar tudo (substitui as observações já existentes)</label>
+      <div class="linha-botoes" style="margin-top:12px">
+        <button type="submit" class="principal">Varrer agora</button>
+        <a class="botao" href="{{ url_for('ui.config_page') }}">editar pastas padrão</a>
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('ui.importar_purgar') }}" style="margin-top:10px"
+          data-confirmar="Remover do banco todas as sessões sem nenhuma observação?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">Limpar sessões vazias</button>
+    </form>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Formatos reconhecidos</h2>
+  <table>
+    <thead><tr><th>formato</th><th>colunas</th><th>origem típica</th><th>observação</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">WigleWifi-1.4</td><td>11</td><td>ESP32 Marauder (JustCallMeKoko)</td>
+          <td class="texto-fraco">sem coluna Frequency — a frequência é derivada do canal</td></tr>
+      <tr><td class="mono">WigleWifi-1.6</td><td>12</td><td>projectZero / warrior, WDGoWars</td>
+          <td class="texto-fraco">com Frequency, sem RCOIs/MfgrId</td></tr>
+      <tr><td class="mono">WigleWifi-1.6</td><td>14</td><td>app WiGLE Android, Kismet, Bruce</td>
+          <td class="texto-fraco">layout completo, incluindo celular</td></tr>
+      <tr><td class="mono">CSV sem pre-header</td><td>variável</td><td>exportações manuais</td>
+          <td class="texto-fraco">cabeçalho lido da primeira linha</td></tr>
+    </tbody>
+  </table>
+  <p class="solta-baixo">
+    O mapeamento é feito por nome de coluna, então versões com colunas a mais, a menos ou em ordem
+    diferente entram sem ajuste manual.
+  </p>
+</div>
+
+{% if qualidade.problemas %}
+<div class="cartao" style="margin-top:14px">
+  <h2>Pontos de atenção nos arquivos</h2>
+  <div class="tabela-rolagem">
+  <table>
+    <thead><tr><th>arquivo</th><th>formato</th><th class="num">linhas</th><th class="num">sem GPS</th>
+               <th class="num">inválidas</th><th>primeira coleta</th><th></th></tr></thead>
+    <tbody>
+      {% for p in qualidade.problemas %}
+      <tr>
+        <td><a href="{{ url_for('ui.sessao_detalhe', file_id=p.id) }}">{{ p.name }}</a>
+          <div class="solta-baixo">{{ p.brand or '' }} {{ p.model or '' }}</div></td>
+        <td><span class="etiqueta">{{ p.format_version or '?' }}</span></td>
+        <td class="num">{{ p.obs_count }}</td>
+        <td class="num">{{ p.no_gps_count }}</td>
+        <td class="num">{{ p.bad_count }}</td>
+        <td class="mono">{{ p.first_seen or '—' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('ui.sessao_reimportar', file_id=p.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="mini" {% if p.obs_count == 0 %}disabled{% endif %}>Reimportar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="solta-baixo">
+    Linhas sem GPS não são enviadas para WiGLE nem para o WDGoWars (que as contabiliza em
+    <code>no_gps</code>) — a menos que você habilite isso em Configurações.
+  </p>
+</div>
+{% endif %}
+
+{% if qualidade.duplicados %}
+<div class="cartao" style="margin-top:14px">
+  <h2>Arquivos com o mesmo conteúdo</h2>
+  <table>
+    <thead><tr><th>sha256</th><th class="num">cópias</th><th>arquivos</th><th class="num">linhas somadas</th></tr></thead>
+    <tbody>
+      {% for d in qualidade.duplicados %}
+      <tr><td class="mono">{{ d.sha256[:20] }}…</td><td class="num">{{ d.copias }}</td>
+          <td class="mono solta-baixo">{{ d.nomes }}</td><td class="num">{{ d.obs }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="solta-baixo">
+    Cópias do mesmo arquivo (por exemplo, um drive copiado duas vezes para o cartão) geram
+    observações idênticas. No lote de exportação, a opção “remover linhas idênticas” cuida disso.
+  </p>
+</div>
+{% endif %}
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Últimas sessões importadas</h2>
+  {% if sessoes %}
+  <table>
+    <thead><tr><th>arquivo</th><th>início</th><th class="num">linhas</th><th class="num">redes</th><th>fonte</th></tr></thead>
+    <tbody>
+      {% for s in sessoes %}
+      <tr>
+        <td><a href="{{ url_for('ui.sessao_detalhe', file_id=s.id) }}">{{ s.name }}</a></td>
+        <td class="mono">{{ s.first_seen or '—' }}</td>
+        <td class="num">{{ s.obs_count }}</td>
+        <td class="num">{{ s.network_count }}</td>
+        <td class="texto-fraco">{{ s.source }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="texto-fraco" style="margin:0">Nada importado ainda.</p>{% endif %}
+</div>
+{% endblock %}

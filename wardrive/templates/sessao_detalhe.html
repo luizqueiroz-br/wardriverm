@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block titulo %}{{ sessao.name }}{% endblock %}
+
+{% block conteudo %}
+<h1>{{ sessao.name }}</h1>
+
+<div class="grade c4">
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Observações</div>
+    <div class="valor">{{ sessao.obs_count }}</div>
+    <div class="sub">{{ sessao.network_count }} redes distintas</div>
+  </div>
+  <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">Wi-Fi / BLE</div>
+    <div class="valor">{{ sessao.wifi_count }} / {{ sessao.ble_count }}</div>
+    <div class="sub">{% if sessao.cell_count %}{{ sessao.cell_count }} celular · {% endif %}RSSI e canais na tabela</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Período</div>
+    <div class="valor" style="font-size:16px">{{ sessao.first_seen or '—' }}</div>
+    <div class="sub">até {{ sessao.last_seen or '—' }}</div>
+  </div>
+  <div class="cartao compacto {{ 'kpi-alerta' if sessao.no_gps_count else '' }}">
+    <div class="titulo-kpi">Sem GPS</div>
+    <div class="valor">{{ sessao.no_gps_count }}</div>
+    <div class="sub">{{ sessao.bad_count }} linha(s) inválida(s) · {{ sessao.size }} bytes</div>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Detalhes do arquivo</h2>
+  <table>
+    <tbody>
+      <tr><th>pre-header</th><td class="mono">{{ sessao.preheader }}</td></tr>
+      <tr><th>colunas</th><td class="mono">{{ sessao.columns }}</td></tr>
+      <tr><th>sha256</th><td class="mono">{{ sessao.sha256 }}</td></tr>
+      <tr><th>caminho</th><td class="mono">{{ sessao.path or '—' }}</td></tr>
+      <tr><th>área coberta</th><td class="mono">
+        {% if sessao.min_lat is not none %}
+          {{ '%.5f'|format(sessao.min_lat) }}, {{ '%.5f'|format(sessao.min_lon) }}
+          → {{ '%.5f'|format(sessao.max_lat) }}, {{ '%.5f'|format(sessao.max_lon) }}
+        {% else %}sem coordenadas{% endif %}
+      </td></tr>
+      <tr><th>importado em</th><td>{{ sessao.imported_at }} ({{ sessao.source }})</td></tr>
+    </tbody>
+  </table>
+
+  <div class="linha-botoes" style="margin-top:14px">
+    <a class="botao" href="{{ url_for('ui.mapa', sessao=sessao.id) }}">Ver no mapa</a>
+    <form method="post" action="{{ url_for('ui.exportar_criar') }}" class="linha-botoes">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="mode" value="files">
+      <input type="hidden" name="file_ids" value="{{ sessao.id }}">
+      <input type="hidden" name="types" value="WIFI"><input type="hidden" name="types" value="BLE">
+      <input type="hidden" name="with_gps_only" value="1">
+      <input type="hidden" name="dedupe" value="exact">
+      <input type="hidden" name="label" value="{{ sessao.name }}">
+      <button type="submit" name="target" value="wigle" class="principal">Gerar CSV WiGLE</button>
+      <button type="submit" name="target" value="wdgwars" class="principal">Gerar CSV WDGoWars</button>
+    </form>
+    <form method="post" action="{{ url_for('ui.sessao_reimportar', file_id=sessao.id) }}"
+          data-confirmar="Reimportar {{ sessao.name }}? As observações da sessão serão refeitas a partir do arquivo original.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">Reimportar do disco</button>
+    </form>
+    <form method="post" action="{{ url_for('ui.sessao_excluir', file_id=sessao.id) }}"
+          data-confirmar="Remover esta sessão do banco?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="perigo">Excluir do banco</button>
+    </form>
+  </div>
+</div>
+
+{% if uploads %}
+<div class="cartao" style="margin-top:14px">
+  <h2>Envios que incluíram esta sessão</h2>
+  <table>
+    <thead><tr><th>quando</th><th>destino</th><th>arquivo</th><th>situação</th><th>resposta</th></tr></thead>
+    <tbody>
+      {% for u in uploads %}
+      <tr>
+        <td class="mono">{{ u.created_at }}</td>
+        <td>{{ targets[u.target].label if u.target in targets else u.target }}</td>
+        <td class="mono">{{ u.filename }}</td>
+        <td><span class="etiqueta {{ u.status }}">{{ u.status }}</span></td>
+        <td class="texto-fraco">{{ u.message }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Observações <span class="texto-fraco">({{ page.total }})</span></h2>
+  <div class="linha-botoes" style="margin-bottom:10px">
+    <a class="botao" href="{{ url_for('ui.sessao_detalhe', file_id=sessao.id, pagina=1) }}">Todas</a>
+    <a class="botao" href="{{ url_for('ui.sessao_detalhe', file_id=sessao.id, filtro='sem_gps', pagina=1) }}">Somente sem GPS</a>
+  </div>
+  <div class="tabela-rolagem">
+  <table>
+    <thead>
+      <tr><th>MAC</th><th>SSID</th><th>AuthMode</th><th>visto em</th><th class="num">canal</th>
+          <th class="num">MHz</th><th class="num">RSSI</th><th>latitude</th><th>longitude</th>
+          <th class="num">alt</th><th class="num">prec.</th><th>tipo</th></tr>
+    </thead>
+    <tbody>
+      {% for o in observacoes %}
+      <tr>
+        <td class="mono"><a href="{{ url_for('ui.rede_detalhe', mac=o.mac) }}">{{ o.mac }}</a></td>
+        <td>{{ o.ssid or '—' }}</td>
+        <td class="mono texto-fraco">{{ o.auth_mode }}</td>
+        <td class="mono">{{ o.first_seen }}</td>
+        <td class="num">{{ o.channel if o.channel is not none else '—' }}</td>
+        <td class="num">{{ o.frequency or '—' }}</td>
+        <td class="num">{{ o.rssi if o.rssi is not none else '—' }}</td>
+        <td class="mono">{% if o.has_gps %}{{ '%.6f'|format(o.lat) }}{% else %}<span class="texto-fraco">s/ GPS</span>{% endif %}</td>
+        <td class="mono">{% if o.has_gps %}{{ '%.6f'|format(o.lon) }}{% else %}<span class="texto-fraco">—</span>{% endif %}</td>
+        <td class="num">{{ o.altitude if o.altitude is not none else '—' }}</td>
+        <td class="num">{{ o.accuracy if o.accuracy is not none else '—' }}</td>
+        <td><span class="etiqueta {{ o.type }}">{{ o.type }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="paginacao">
+    {% if page.pagina > 1 %}
+      <a href="{{ url_for('ui.sessao_detalhe', file_id=sessao.id, pagina=page.pagina-1, filtro=request.args.get('filtro')) }}">← anterior</a>
+    {% endif %}
+    <span>página {{ page.pagina }} de {{ page.paginas }}</span>
+    {% if page.pagina < page.paginas %}
+      <a href="{{ url_for('ui.sessao_detalhe', file_id=sessao.id, pagina=page.pagina+1, filtro=request.args.get('filtro')) }}">próxima →</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

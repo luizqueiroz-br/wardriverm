@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block titulo %}Exportar{% endblock %}
+
+{% block conteudo %}
+<h1>Exportar CSVs compatíveis</h1>
+
+<div class="grade c2">
+  <div class="cartao">
+    <h2>Gerar um lote</h2>
+    <form method="post" action="{{ url_for('ui.exportar_criar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="grade c2">
+        <div class="campo"><label for="target">destino</label>
+          <select id="target" name="target">
+            <option value="wigle">WiGLE (wigle.net)</option>
+            <option value="wdgwars">WDGoWars (wdgwars.pl)</option>
+          </select></div>
+        <div class="campo"><label for="mode">o que exportar</label>
+          <select id="mode" name="mode">
+            <option value="all">tudo que está no banco</option>
+            <option value="new">somente o que ainda não subiu para o destino</option>
+            <option value="files">somente sessões escolhidas abaixo</option>
+          </select></div>
+        <div class="campo"><label for="de">coleta de</label><input type="date" id="de" name="date_from"></div>
+        <div class="campo"><label for="ate">até</label><input type="date" id="ate" name="date_to"></div>
+        <div class="campo"><label for="dedupe">duplicatas</label>
+          <select id="dedupe" name="dedupe">
+            <option value="exact">remover linhas idênticas (recomendado)</option>
+            <option value="network">1 amostra por rede e sessão (lote menor)</option>
+            <option value="none">manter todas as linhas</option>
+          </select></div>
+        <div class="campo"><label for="header_mode">pre-header</label>
+          <select id="header_mode" name="header_mode">
+            <option value="source">do arquivo de origem (atribuição correta)</option>
+            <option value="profile">perfil do dispositivo nas configurações</option>
+          </select></div>
+        <div class="campo"><label for="label">rótulo do lote</label>
+          <input type="text" id="label" name="label" placeholder="ex.: volta-zona-sul"></div>
+        <div class="campo"><label>&nbsp;</label>
+          <label class="check"><input type="checkbox" name="with_gps_only" value="1" checked> somente linhas com GPS</label>
+        </div>
+        <label class="check"><input type="checkbox" name="types" value="WIFI" checked> Wi-Fi</label>
+        <label class="check"><input type="checkbox" name="types" value="BLE" checked> BLE</label>
+        <label class="check"><input type="checkbox" name="types" value="BT"> BT</label>
+        <label class="check"><input type="checkbox" name="types" value="GSM"> celular</label>
+      </div>
+
+      <h3 style="margin-top:14px">Sessões (apenas no modo “somente sessões escolhidas”)</h3>
+      <div class="campo"><select name="file_ids" multiple size="8" style="width:100%">
+        {% for s in sessoes %}
+          <option value="{{ s.id }}">{{ s.name }} — {{ s.obs_count }} obs — {{ s.first_seen or 'sem data' }}</option>
+        {% endfor %}
+      </select></div>
+
+      <div class="linha-botoes" style="margin-top:14px">
+        <button type="submit" class="principal">Gerar lotes</button>
+        <span class="solta-baixo">
+          Fila atual: {{ resumo.pendentes.wigle }} linhas para WiGLE ·
+          {{ resumo.pendentes.wdgwars }} para WDGoWars
+        </span>
+      </div>
+    </form>
+  </div>
+
+  <div class="cartao">
+    <h2>Como os lotes saem daqui</h2>
+    <ul class="lista-limpa">
+      <li><span>Pre-header</span><span class="texto-fraco mono">WigleWifi-1.6,appRelease=…,brand=…</span></li>
+      <li><span>Cabeçalho</span><span class="texto-fraco mono">MAC,SSID,AuthMode,FirstSeen,Channel,Frequency,RSSI,…,Type</span></li>
+      <li><span>Quebra de linha / codificação</span><span class="texto-fraco">CRLF · UTF-8</span></li>
+      <li><span>WiGLE</span><span class="texto-fraco">até 38 MB por arquivo · {{ 'gz opcional' if settings.export.gzip_wigle else 'CSV cru' }}</span></li>
+      <li><span>WDGoWars</span><span class="texto-fraco">até 14 MB e 10 000 linhas por arquivo (evita o timeout 524)</span></li>
+      <li><span>Extras</span><span class="texto-fraco">manifest.json + upload.sh + upload.ps1 em cada lote</span></li>
+    </ul>
+    <p class="solta-baixo">
+      Cada parte do lote repete as duas linhas de cabeçalho: um fragmento sem cabeçalho faz o
+      importador do WiGLE ler o layout antigo e trocar sinal por latitude.
+    </p>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Lotes gerados ({{ exports | length }})</h2>
+  {% if exports %}
+  <div class="tabela-rolagem">
+  <table>
+    <thead>
+      <tr><th>#</th><th>criado</th><th>destino</th><th>rótulo</th><th class="num">linhas</th>
+          <th class="num">arquivos</th><th class="num">MB</th><th>envio</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for e in exports %}
+      <tr>
+        <td class="mono">{{ e.id }}</td>
+        <td class="mono">{{ e.created_at }}</td>
+        <td>{{ targets[e.target].label if e.target in targets else e.target }}</td>
+        <td>{{ e.label or '—' }}</td>
+        <td class="num">{{ e.row_count }}</td>
+        <td class="num">{{ e.arquivos }}</td>
+        <td class="num">{{ (e.bytes / 1048576) | round(2) }}</td>
+        <td>
+          {% if e.enviados %} <span class="etiqueta ok">{{ e.enviados }} enviado(s)</span>{% endif %}
+          {% if e.falhas %} <span class="etiqueta erro">{{ e.falhas }} falha(s)</span>{% endif %}
+          {% if not e.enviados and not e.falhas %} <span class="etiqueta">pendente</span>{% endif %}
+        </td>
+        <td class="linha-botoes">
+          <a class="botao mini" href="{{ url_for('ui.exportar_detalhe', export_id=e.id) }}">abrir</a>
+          <a class="botao mini" href="{{ url_for('ui.exportar_zip', export_id=e.id) }}">zip</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="texto-fraco" style="margin:0">Nenhum lote gerado ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

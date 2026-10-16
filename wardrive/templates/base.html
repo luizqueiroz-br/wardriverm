@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body data-csrf="{{ csrf_token }}">
+<header class="topo">
+  <div class="marca">
+    <span class="logo">◉</span>
+    <a href="{{ url_for('ui.dashboard') }}">{{ app_name }}</a>
+    <span class="versao">v{{ app_version }}</span>
+  </div>
+  <nav>
+    <a href="{{ url_for('ui.dashboard') }}" class="{{ 'ativo' if request.endpoint == 'ui.dashboard' }}">Painel</a>
+    <a href="{{ url_for('ui.mapa') }}" class="{{ 'ativo' if request.endpoint == 'ui.mapa' }}">Mapa</a>
+    <a href="{{ url_for('ui.redes') }}" class="{{ 'ativo' if request.endpoint == 'ui.redes' }}">Redes</a>
+    <a href="{{ url_for('ui.sessoes') }}" class="{{ 'ativo' if request.endpoint == 'ui.sessoes' }}">Sessões</a>
+    <a href="{{ url_for('ui.importar') }}" class="{{ 'ativo' if request.endpoint == 'ui.importar' }}">Importar</a>
+    <a href="{{ url_for('ui.exportar') }}" class="{{ 'ativo' if request.endpoint == 'ui.exportar' }}">Exportar</a>
+    <a href="{{ url_for('ui.uploads_page') }}" class="{{ 'ativo' if request.endpoint == 'ui.uploads_page' }}">
+      Uploads
+      {% if not has_wigle_key and not has_wdgwars_key %}<span class="ponto-alerta" title="nenhuma chave de API configurada"></span>{% endif %}
+    </a>
+    <a href="{{ url_for('ui.atividade') }}" class="{{ 'ativo' if request.endpoint == 'ui.atividade' }}">Atividade</a>
+    <a href="{{ url_for('ui.config_page') }}" class="{{ 'ativo' if request.endpoint == 'ui.config_page' }}">Config</a>
+  </nav>
+</header>
+
+<div class="principal">
+  <div id="jobbar" class="jobbar" hidden>
+    <div class="jobinfo">
+      <span class="rotulo" id="job-rotulo">tarefa</span>
+      <div class="barra"><div class="preenche" id="job-barra"></div></div>
+      <span class="numeros" id="job-numeros"></span>
+      <button type="button" class="mini" id="job-toggle">detalhes</button>
+    </div>
+    <pre class="joblog" id="job-log" hidden></pre>
+  </div>
+
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+      <div class="avisos">
+        {% for categoria, texto in mensagens %}
+          <div class="aviso {{ categoria }}">{{ texto }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block conteudo %}{% endblock %}
+
+  <footer class="rodape">
+    {{ app_name }} {{ app_version }} · banco em <code>data/wardrive.db</code> ·
+    exportações em <code>data/exports/</code> · dados processados na sua máquina
+  </footer>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

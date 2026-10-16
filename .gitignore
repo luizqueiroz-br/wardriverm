@@ -1,0 +1,28 @@
+# ---------------------------------------------------------------- Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ------------------------------------------------- dados do usuário (privados)
+# O banco tem MACs, SSIDs e coordenadas das suas coletas: fica só na sua máquina.
+data/*
+!data/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+data/secrets.json
+data/servidor*.log
+data/servidor.pid
+
+# ------------------------------------------------------- lotes de exportação
+data/exports/
+
+# --------------------------------------------------------------- editores/SO
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp

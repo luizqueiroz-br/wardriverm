@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block titulo %}Painel{% endblock %}
+
+{% block conteudo %}
+<h1>Painel</h1>
+
+<div class="grade c4">
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Sessões importadas</div>
+    <div class="valor">{{ resumo.arquivos }}</div>
+    <div class="sub">{{ resumo.observacoes }} observações no total</div>
+  </div>
+  <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">Redes únicas</div>
+    <div class="valor">{{ resumo.redes }}</div>
+    <div class="sub">{{ resumo.redes_wifi }} Wi-Fi · {{ resumo.redes_ble }} BLE/BT{% if resumo.redes_celular %} · {{ resumo.redes_celular }} celular{% endif %}</div>
+  </div>
+  <div class="cartao compacto kpi-azul">
+    <div class="titulo-kpi">Wi-Fi / BLE</div>
+    <div class="valor">{{ resumo.wifi }} / {{ resumo.ble }}</div>
+    <div class="sub">observações por tipo{% if resumo.celular %} · {{ resumo.celular }} celular{% endif %}</div>
+  </div>
+  <div class="cartao compacto {{ 'kpi-alerta' if resumo.sem_gps else '' }}">
+    <div class="titulo-kpi">Sem GPS</div>
+    <div class="valor">{{ resumo.sem_gps }}</div>
+    <div class="sub">{{ resumo.invalidas }} linha(s) inválida(s) descartada(s)</div>
+  </div>
+</div>
+
+<div class="grade c2" style="margin-top:14px">
+  <div class="cartao">
+    <h2>Coletas por dia{% if resumo.inicio %} <span class="texto-fraco">({{ resumo.inicio }} → {{ resumo.fim }})</span>{% endif %}</h2>
+    {% if serie %}
+      {% set maximo = serie | map(attribute='obs') | max %}
+      <div class="barras">
+        {% for dia in serie %}
+          <div class="barra-dia" style="height: {{ (100 * dia.obs / maximo) | round(1) }}%"
+               title="{{ dia.dia }}: {{ dia.obs }} observações · {{ dia.redes }} redes"></div>
+        {% endfor %}
+      </div>
+      <div class="solta-baixo" style="display:flex;justify-content:space-between;margin-top:6px">
+        <span>{{ serie[0].dia }}</span><span>{{ serie[-1].dia }}</span>
+      </div>
+    {% else %}
+      <p class="texto-fraco">Sem coletas nos últimos 45 dias. Importe seus arquivos na aba <a href="{{ url_for('ui.importar') }}">Importar</a>.</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Fila de upload (linhas ainda não enviadas)</h2>
+    <div class="grade c2">
+      <div>
+        <div class="titulo-kpi">WiGLE</div>
+        <div class="valor kpi-verde" style="font-size:22px">{{ resumo.pendentes.wigle }}</div>
+        <div class="sub">
+          {% if has_wigle_key %}<span class="pill-chave ok">chave configurada</span>
+          {% else %}<span class="pill-chave falta">configure a chave</span>{% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="titulo-kpi">WDGoWars</div>
+        <div class="valor kpi-azul" style="font-size:22px">{{ resumo.pendentes.wdgwars }}</div>
+        <div class="sub">
+          {% if has_wdgwars_key %}<span class="pill-chave ok">chave configurada</span>
+          {% else %}<span class="pill-chave falta">configure a chave</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="linha-botoes" style="margin-top:12px">
+      <a class="botao principal" href="{{ url_for('ui.uploads_page') }}">Exportar e enviar</a>
+      <a class="botao" href="{{ url_for('ui.exportar') }}">Só gerar os CSVs</a>
+    </div>
+    <p class="solta-baixo" style="margin-top:10px">
+      {{ resumo.exports }} exportação(ões) gerada(s) ({{ resumo.exports_linhas }} linhas) — o modo
+      “somente novas” nunca reenvia o que já foi aceito por cada destino.
+    </p>
+  </div>
+</div>
+
+<div class="grade c3" style="margin-top:14px">
+  <div class="cartao">
+    <h2>SSIDs mais vistos</h2>
+    {% if top_ssids %}
+      {% set maximo = top_ssids | map(attribute='redes') | max %}
+      <div class="mini-barras">
+        {% for item in top_ssids %}
+          <div class="linha">
+            <span class="rotulo" title="{{ item.ssid }}">{{ item.ssid }}</span>
+            <span class="trilha"><span style="width: {{ (100 * item.redes / maximo) | round(1) }}%"></span></span>
+            <span class="num">{{ item.redes }} redes</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}<p class="texto-fraco">Sem SSIDs registrados.</p>{% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Segurança dos APs</h2>
+    {% if top_auth %}
+      {% set maximo = top_auth | map(attribute='obs') | max %}
+      <div class="mini-barras">
+        {% for item in top_auth %}
+          <div class="linha">
+            <span class="rotulo mono" title="{{ item.auth_mode }}">{{ item.auth_mode }}</span>
+            <span class="trilha"><span style="width: {{ (100 * item.obs / maximo) | round(1) }}%; background: var(--acento2)"></span></span>
+            <span class="num">{{ item.obs }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}<p class="texto-fraco">Sem dados.</p>{% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Canais mais ativos</h2>
+    {% if canais %}
+      {% set maximo = canais | map(attribute='obs') | max %}
+      <div class="mini-barras">
+        {% for item in canais %}
+          <div class="linha">
+            <span class="rotulo">canal {{ item.channel }} <span class="texto-fraco">{{ item.type }}</span></span>
+            <span class="trilha"><span style="width: {{ (100 * item.obs / maximo) | round(1) }}%; background: {% if item.type == 'WIFI' %}var(--acento){% elif item.type in ['BLE','BT'] %}var(--ble){% else %}var(--alerta){% endif %}"></span></span>
+            <span class="num">{{ item.obs }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}<p class="texto-fraco">Sem dados de canal.</p>{% endif %}
+  </div>
+</div>
+
+<div class="grade c3" style="margin-top:14px">
+  <div class="cartao">
+    <h2>Últimas sessões</h2>
+    {% if sessoes %}
+      <ul class="lista-limpa">
+        {% for s in sessoes %}
+          <li>
+            <span><a href="{{ url_for('ui.sessao_detalhe', file_id=s.id) }}">{{ s.name }}</a>
+              <div class="solta-baixo">{{ s.first_seen or 'sem data' }} · {{ s.model or '?' }}</div>
+            </span>
+            <span class="texto-fraco">{{ s.obs_count }} obs</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom:0"><a href="{{ url_for('ui.sessoes') }}">ver todas as sessões →</a></p>
+    {% else %}<p class="texto-fraco">Nada importado ainda.</p>{% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Últimos envios</h2>
+    {% if uploads %}
+      <ul class="lista-limpa">
+        {% for u in uploads %}
+          <li>
+            <span>{{ u.filename }}
+              <div class="solta-baixo">{{ u.created_at }} · {{ u.target }}{% if u.dry_run %} · simulação{% endif %}</div>
+            </span>
+            <span class="etiqueta {{ u.status }}">{{ u.status }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom:0"><a href="{{ url_for('ui.uploads_page') }}">histórico completo →</a></p>
+    {% else %}<p class="texto-fraco">Nenhum upload realizado.</p>{% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Qualidade dos dados</h2>
+    {% if qualidade.problemas %}
+      <ul class="lista-limpa">
+        {% for p in qualidade.problemas[:6] %}
+          <li>
+            <span>{{ p.name }}
+              <div class="solta-baixo">{{ p.format_version }} · {{ p.obs_count }} linhas</div>
+            </span>
+            <span class="texto-fraco" style="text-align:right">
+              {% if p.no_gps_count %}<span class="etiqueta">{{ p.no_gps_count }} sem GPS</span>{% endif %}
+              {% if p.bad_count %}<span class="etiqueta erro">{{ p.bad_count }} inválidas</span>{% endif %}
+              {% if not p.obs_count %}<span class="etiqueta">vazio</span>{% endif %}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="texto-fraco">Nenhum problema detectado nos arquivos importados.</p>
+    {% endif %}
+    {% if qualidade.duplicados %}
+      <h3 style="margin-top:14px">Arquivos com conteúdo repetido</h3>
+      <ul class="lista-limpa">
+        {% for d in qualidade.duplicados[:5] %}
+          <li><span class="mono">{{ d.nomes }}</span><span class="texto-fraco">{{ d.copias }}×</span></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</div>
+
+{% if eventos %}
+<div class="cartao" style="margin-top:14px">
+  <h2>Atividade recente</h2>
+  <div class="tabela-rolagem">
+  <table>
+    <thead><tr><th>quando</th><th>nível</th><th>origem</th><th>mensagem</th></tr></thead>
+    <tbody>
+      {% for e in eventos %}
+        <tr><td class="mono">{{ e.ts }}</td><td><span class="etiqueta {{ 'erro' if e.level == 'erro' else '' }}">{{ e.level }}</span></td>
+            <td class="texto-fraco">{{ e.source }}</td><td>{{ e.message }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

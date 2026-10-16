@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block titulo %}Lote #{{ export.id }}{% endblock %}
+
+{% block conteudo %}
+<h1>Lote #{{ export.id }} <span class="texto-fraco">{{ export.label or '' }}</span></h1>
+
+<div class="grade c4">
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Destino</div>
+    <div class="valor" style="font-size:17px">{{ targets[export.target].label if export.target in targets else export.target }}</div>
+    <div class="sub">criado em {{ export.created_at }}</div>
+  </div>
+  <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">Linhas</div>
+    <div class="valor">{{ export.row_count }}</div>
+    <div class="sub">em {{ export.chunk_count }} arquivo(s)</div>
+  </div>
+  <div class="cartao compacto kpi-azul">
+    <div class="titulo-kpi">Tamanho</div>
+    <div class="valor" style="font-size:20px">{{ (export.bytes / 1048576) | round(2) }} MB</div>
+    <div class="sub">limite do destino: {{ (settings.export[export.target ~ '_max_bytes'] / 1048576) | round(0) }} MB</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Pasta</div>
+    <div class="valor" style="font-size:13px;word-break:break-all" class="mono">{{ export.dir }}</div>
+    <div class="sub"><a href="{{ url_for('ui.exportar_zip', export_id=export.id) }}">baixar tudo em .zip</a></div>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Arquivos do lote</h2>
+  <div class="tabela-rolagem">
+  <table>
+    <thead><tr><th>#</th><th>arquivo</th><th class="num">linhas</th><th class="num">KB</th><th>sha256</th><th>enviado para</th><th></th></tr></thead>
+    <tbody>
+      {% for c in chunks %}
+      <tr>
+        <td class="mono">{{ c.idx }}</td>
+        <td class="mono">{{ c.filename }}{% if 'resplit' in c.path %} <span class="etiqueta">dividido</span>{% endif %}</td>
+        <td class="num">{{ c.rows }}</td>
+        <td class="num">{{ (c.bytes / 1024) | round(1) }}</td>
+        <td class="mono solta-baixo">{{ c.sha256[:16] }}…</td>
+        <td>
+          {% if c.destinos %}<span class="etiqueta ok">{{ c.destinos }}</span>{% else %}<span class="etiqueta">—</span>{% endif %}
+        </td>
+        <td><a class="botao mini" href="{{ url_for('ui.exportar_arquivo', export_id=export.id, chunk_id=c.id) }}">baixar</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="grade c2" style="margin-top:14px">
+  <div class="cartao">
+    <h2>Enviar este lote agora</h2>
+    <form method="post" action="{{ url_for('ui.uploads_enviar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="export_id" value="{{ export.id }}">
+      <input type="hidden" name="target" value="{{ export.target }}">
+      <label class="check"><input type="checkbox" name="dry_run" value="1" checked> simular (não envia nada)</label>
+      <div class="linha-botoes" style="margin-top:10px">
+        <button type="submit" class="principal">Enviar para {{ targets[export.target].label if export.target in targets else export.target }}</button>
+        <span class="solta-baixo">a fila processa um lote por vez, como o WDGoWars exige</span>
+      </div>
+    </form>
+    <h3 style="margin-top:16px">Parâmetros usados</h3>
+    <pre class="joblog">{{ export.selection_json }}</pre>
+    <h3>Pre-header</h3>
+    <pre class="joblog">{{ export.preheader }}</pre>
+  </div>
+
+  <div class="cartao">
+    <h2>Histórico de envios deste lote</h2>
+    {% if uploads %}
+    <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>quando</th><th>arquivo</th><th>situação</th><th>HTTP</th><th>resposta</th></tr></thead>
+      <tbody>
+        {% for u in uploads %}
+        <tr>
+          <td class="mono">{{ u.created_at }}</td>
+          <td class="mono">{{ u.filename }}</td>
+          <td><span class="etiqueta {{ u.status }}">{{ u.status }}</span>{% if u.dry_run %} <span class="etiqueta simulado">simulação</span>{% endif %}</td>
+          <td class="num">{{ u.http_status or '—' }}</td>
+          <td class="texto-fraco">{{ u.message }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="texto-fraco" style="margin:0">Nada enviado a partir deste lote ainda.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2>Upload manual (sem a interface)</h2>
+  <p class="texto-fraco">Dentro da pasta do lote existem dois scripts prontos:
+    <code>upload.sh</code> (bash/curl) e <code>upload.ps1</code> (PowerShell). Ambos leem a chave das
+    variáveis de ambiente e sobem cada parte na ordem correta.</p>
+</div>
+{% endblock %}
