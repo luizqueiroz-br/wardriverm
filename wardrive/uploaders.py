@@ -168,19 +168,21 @@ def wigle_post(*, api_name: str, api_token: str, filename: str, content: bytes,
         return {"status": STATUS_ERROR, "http_status": resp.status_code,
                 "message": body[:300], "response": payload, "duration_ms": duration}
 
-    if payload is None:
+    if payload is None or not isinstance(payload, dict):
         return {"status": STATUS_ERROR, "http_status": resp.status_code,
-                "message": f"resposta não-JSON: {body[:300]}", "duration_ms": duration}
+                "message": f"resposta inesperada (HTTP {resp.status_code}): {body[:300]}",
+                "duration_ms": duration}
 
-    results = payload.get("results") or []
-    first = results[0] if results else {}
+    first = primeiro_resultado_wigle(payload)
     ok = bool(payload.get("success")) and resp.status_code == 200
     message = (first.get("message") or payload.get("message") or "").strip()
     low = message.lower()
     if ok and ("already" in low or "duplicate" in low):
         status = STATUS_DUPLICATE
-    elif ok:
-        status = STATUS_OK
+    elif ok or payload.get("success") is None and resp.status_code == 200:
+        # HTTP 200 sem "success" explícito não deve ser tratado como falha:
+        # o arquivo pode ter sido aceito e só a forma da resposta ter mudado.
+        status = STATUS_OK if resp.status_code == 200 else STATUS_ERROR
     elif "already" in low or "duplicate" in low:
         status, ok = STATUS_DUPLICATE, True
     else:
@@ -194,6 +196,71 @@ def wigle_post(*, api_name: str, api_token: str, filename: str, content: bytes,
         "networks": first.get("networks"),
         "duration_ms": duration,
     }
+
+
+def primeiro_resultado_wigle(payload) -> dict:
+    """Normaliza o resultado do upload do WiGLE, aceitando as formas que ele já usou.
+
+    A resposta real (verificada em 16/10/2026) é:
+
+        {"success": true, "warning": null,
+         "results": {"timeTaken": "0", "filesize": 975, "filename": "1792161846_part01.csv",
+                     "transids": [{"file": "...", "size": 975, "transId": "20261016-00975"}]},
+         "observer": "..."}
+
+    ou seja: `results` é um OBJETO (não lista) e o transid vem em `results.transids[0].transId`.
+    Ler por posição derrubava o envio com KeyError; aqui a leitura é tolerante e devolve sempre
+    um dicionário com as chaves `transid`, `networks` e `message` quando existirem.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    results = payload.get("results")
+
+    registro: dict = {}
+    if isinstance(results, list):
+        for item in results:
+            if isinstance(item, dict):
+                registro = item
+                break
+    elif isinstance(results, dict):
+        if any(chave in results for chave in ("transid", "message", "networks", "status", "fileName")):
+            registro = results
+        else:
+            for valor in results.values():
+                if isinstance(valor, dict):
+                    registro = valor
+                    break
+
+    transid = None
+    redes = None
+    mensagem = None
+    if isinstance(registro, dict):
+        transid = registro.get("transid") or registro.get("transId") or registro.get("trans_id")
+        redes = registro.get("networks")
+        mensagem = registro.get("message")
+
+    # formato real: transids é uma lista dentro de results
+    if isinstance(results, dict):
+        lista = results.get("transids") or results.get("transactions")
+        if isinstance(lista, list) and lista and isinstance(lista[0], dict):
+            primeiro = lista[0]
+            transid = transid or primeiro.get("transId") or primeiro.get("transid")
+            redes = redes if redes is not None else primeiro.get("networks")
+        transid = transid or results.get("transId") or results.get("transid")
+
+    for chave in ("result", "upload"):
+        valor = payload.get(chave)
+        if isinstance(valor, dict):
+            transid = transid or valor.get("transId") or valor.get("transid")
+            redes = redes if redes is not None else valor.get("networks")
+            mensagem = mensagem or valor.get("message")
+
+    saida = {"transid": transid, "networks": redes, "message": mensagem}
+    if transid and not saida["message"]:
+        saida["message"] = f"aceito pelo WiGLE — transid {transid}"
+        if isinstance(results, dict) and results.get("filesize"):
+            saida["message"] += f", {results['filesize']} bytes"
+    return {chave: valor for chave, valor in saida.items() if valor is not None}
 
 
 def wdgwars_post(*, api_key: str, filename: str, content: bytes,
@@ -232,9 +299,10 @@ def wdgwars_post(*, api_key: str, filename: str, content: bytes,
         return {"status": STATUS_ERROR, "http_status": resp.status_code, "message": body[:300],
                 "response": payload, "duration_ms": duration}
 
-    if payload is None:
+    if payload is None or not isinstance(payload, dict):
         return {"status": STATUS_ERROR, "http_status": resp.status_code,
-                "message": f"resposta não-JSON: {body[:300]}", "duration_ms": duration}
+                "message": f"resposta inesperada (HTTP {resp.status_code}): {body[:300]}",
+                "duration_ms": duration}
 
     if resp.status_code == 409 and payload.get("error") == "duplicate_upload":
         return {"status": STATUS_DUPLICATE, "http_status": 409,

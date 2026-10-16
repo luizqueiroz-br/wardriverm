@@ -26,3 +26,7 @@ data/exports/
 Thumbs.db
 desktop.ini
 *.swp
+
+# insumos dos prints para o post: contêm MAC, SSID e coordenadas reais
+# (só as versões tratadas em docs/linkedin/final/ vão para o repositório)
+docs/linkedin/bruto-*.png

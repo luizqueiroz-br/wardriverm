@@ -70,17 +70,24 @@ def upload_chunk(conn, chunk, target: str, settings: dict, *, dry_run: bool = Tr
     attempt = 0
     while True:
         attempt += 1
-        if target == "wigle":
-            creds = uploaders.creds_for("wigle")
-            result = uploaders.wigle_post(
-                api_name=creds["name"], api_token=creds["token"], filename=chunk["filename"],
-                content=content, donate=bool(settings["upload"].get("wigle_donate")),
-                base=bases["wigle"], timeout=timeout)
-        else:
-            creds = uploaders.creds_for("wdgwars")
-            result = uploaders.wdgwars_post(
-                api_key=creds["key"], filename=chunk["filename"], content=content,
-                base=bases["wdgwars"], timeout=timeout)
+        try:
+            if target == "wigle":
+                creds = uploaders.creds_for("wigle")
+                result = uploaders.wigle_post(
+                    api_name=creds["name"], api_token=creds["token"], filename=chunk["filename"],
+                    content=content, donate=bool(settings["upload"].get("wigle_donate")),
+                    base=bases["wigle"], timeout=timeout)
+            else:
+                creds = uploaders.creds_for("wdgwars")
+                result = uploaders.wdgwars_post(
+                    api_key=creds["key"], filename=chunk["filename"], content=content,
+                    base=bases["wdgwars"], timeout=timeout)
+        except Exception as exc:  # noqa: BLE001 - uma resposta estranha não pode derrubar o lote todo
+            result = {"status": STATUS_ERROR,
+                      "message": f"falha ao interpretar a resposta do servidor: {type(exc).__name__}: {exc}",
+                      "duration_ms": None}
+            if job:
+                job.write(result["message"], "erro")
 
         if result["status"] == STATUS_RATE_LIMITED and attempt <= MAX_RETRIES:
             wait = min(int(result.get("retry_after") or 20), MAX_SLEEP_SECONDS)

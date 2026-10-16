@@ -98,6 +98,7 @@ class EstadoFalso:
         self.transid = 0
         self.credencial_wigle = "usuario_teste:token_de_teste"
         self.credencial_wdg = "b" * 64
+        self.wigle_estilo_resultado = "lista"   # lista | objeto | string | sem_success
         self.travar = threading.Lock()
 
     def reiniciar(self):
@@ -108,6 +109,7 @@ class EstadoFalso:
             self.wigle_limite_linhas = 0
             self.recebidos = []
             self.arquivos_wdg = set()
+            self.wigle_estilo_resultado = "lista"
 
     @staticmethod
     def decodificar_basic(cabecalho: str) -> str:
@@ -138,6 +140,33 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if corpo:
             self.wfile.write(corpo)
+
+    def _resposta_wigle(self, transid: str, linhas: int) -> dict:
+        """Resposta de upload do WiGLE, na forma escolhida por ESTADO.
+
+        `real` reproduz o corpo que o serviço devolveu de verdade em 16/10/2026:
+        `results` é um objeto e o transid vem em `results.transids[0].transId`.
+        """
+        registro = {"transid": transid, "networks": linhas, "message": "ok"}
+        estilo = ESTADO.wigle_estilo_resultado
+        if estilo == "real":
+            return {
+                "success": True, "warning": None,
+                "results": {"timeTaken": "0", "filesize": 975,
+                            "filename": f"1792161846_{transid}.csv",
+                            "transids": [{"file": f"1792161846_{transid}.csv",
+                                          "size": 975, "transId": transid}]},
+                "observer": "tester",
+            }
+        if estilo == "objeto":
+            return {"success": True, "results": {transid: registro}}
+        if estilo == "objeto_simples":
+            return {"success": True, "results": registro}
+        if estilo == "string":
+            return {"success": True, "results": "processando"}
+        if estilo == "sem_success":
+            return {"results": [registro]}
+        return {"success": True, "results": [registro]}
 
     def _ler_corpo(self) -> tuple[bytes, dict]:
         tamanho = int(self.headers.get("Content-Length") or 0)
@@ -200,8 +229,7 @@ class _Handler(BaseHTTPRequestHandler):
                 if ESTADO.wigle_limite_linhas and linhas > ESTADO.wigle_limite_linhas:
                     return self._responder(413, {"success": False,
                                                  "message": "payload too large"})
-            return self._responder(200, {"success": True, "results": [{
-                "transid": transid, "networks": linhas, "message": "ok"}]})
+            return self._responder(200, self._resposta_wigle(transid, linhas))
 
         if self.path.startswith("/endpoint/upload-csv") or self.path.startswith("/api/upload-csv"):
             if not self.headers.get("X-API-Key"):

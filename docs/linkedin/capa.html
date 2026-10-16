@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Wardrive Manager — capa</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 627px; overflow: hidden;
+    background: radial-gradient(1200px 600px at 78% 12%, #17324a 0%, #0d1117 55%, #0a0e13 100%);
+    color: #dbe4ef; font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 62px 70px;
+  }
+  .selo { color: #4ad295; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; }
+  h1 { font-size: 74px; line-height: 1.02; font-weight: 700; letter-spacing: -2px; margin: 18px 0 20px; }
+  h1 span { color: #4ad295; }
+  .sub { font-size: 23px; color: #8b9bb0; max-width: 860px; line-height: 1.45; }
+  .rodape { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .pill { border: 1px solid #26313f; background: #131a23; color: #dbe4ef; padding: 9px 18px; border-radius: 30px; font-size: 16px; }
+  .pill.destaque { border-color: #23653f; color: #b8f5d8; background: #12251c; }
+  .numeros { display: flex; gap: 46px; margin-top: 30px; }
+  .numero .valor { font-size: 40px; font-weight: 700; color: #56a8ff; letter-spacing: -1px; }
+  .numero .rotulo { font-size: 14px; color: #8b9bb0; text-transform: uppercase; letter-spacing: 1.4px; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="selo">Flask · SQLite · Python</div>
+    <h1>Wardrive Manager<br><span>WiGLE + WDGoWars</span></h1>
+    <div class="sub">Importa, analisa, mapeia e exporta CSVs de wardriving prontos para subir nos dois serviços — com upload incremental e fila que trata os limites de cada API.</div>
+    <div class="numeros">
+      <div class="numero"><div class="valor">8.148</div><div class="rotulo">observações</div></div>
+      <div class="numero"><div class="valor">6.278</div><div class="rotulo">redes únicas</div></div>
+      <div class="numero"><div class="valor">41</div><div class="rotulo">testes automatizados</div></div>
+    </div>
+  </div>
+  <div class="rodape">
+    <span class="pill destaque">ESP32 Marauder</span>
+    <span class="pill">WDGoWars / projectZero</span>
+    <span class="pill">WigleWifi 1.4 · 1.6</span>
+    <span class="pill">Leaflet + OpenStreetMap</span>
+  </div>
+</body>
+</html>

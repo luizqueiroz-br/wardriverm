@@ -216,6 +216,66 @@ class FluxoUploadTests(unittest.TestCase):
         self.assertEqual(segunda["export"]["rows"], 0)
         self.assertIsNone(segunda["upload"])
 
+    def test_envio_wigle_aceita_results_em_qualquer_formato(self):
+        """O WiGLE já respondeu `results` como lista, como objeto e como texto:
+        nenhum desses formatos pode derrubar o envio (era KeyError: 0)."""
+        casos = [
+            ("real", True), ("objeto", True), ("objeto_simples", True),
+            ("string", False), ("sem_success", False),
+        ]
+        for estilo, tem_transid in casos:
+            ESTADO.reiniciar()
+            ESTADO.wigle_estilo_resultado = estilo
+            self._importar(4, inicio=900)
+            settings = config.load_settings()
+            selecao = {"mode": "all", "types": ["WIFI"], "with_gps_only": True, "dedupe": "none"}
+            resultado = upload_service.export_and_upload(
+                self.conn, target="wigle", selection=selecao, settings=settings,
+                label=f"formato-{estilo}", dry_run=False)
+            self.assertEqual(resultado["upload"]["ok"], 1, f"estilo {estilo}: {resultado}")
+            self.assertEqual(resultado["upload"]["erros"], 0, f"estilo {estilo}")
+            envio = self.conn.execute(
+                "SELECT * FROM uploads ORDER BY id DESC LIMIT 1").fetchone()
+            self.assertEqual(envio["status"], "ok", f"estilo {estilo}: {dict(envio)}")
+            if tem_transid:
+                self.assertTrue(envio["target_ref"], f"estilo {estilo}: transid não extraído")
+            # o corpo cru fica guardado para auditoria, qualquer que seja o formato
+            self.assertIn("results", envio["response_json"] or "")
+
+    def test_leitura_da_resposta_real_do_wigle(self):
+        """Corpo real devolvido pelo WiGLE: transid em results.transids[0].transId."""
+        real = {
+            "success": True, "warning": None,
+            "results": {"timeTaken": "0", "filesize": 975, "filename": "1792161846_part01.csv",
+                        "transids": [{"file": "1792161846_part01.csv", "size": 975,
+                                      "transId": "20261016-00975"}]},
+            "observer": "qqueiroz",
+        }
+        lido = uploaders.primeiro_resultado_wigle(real)
+        self.assertEqual(lido["transid"], "20261016-00975")
+        self.assertIn("transid 20261016-00975", lido["message"])
+        self.assertIn("975 bytes", lido["message"])
+
+    def test_resposta_inesperada_nao_derruba_o_lote(self):
+        """JSON que não é objeto (lista, por exemplo) vira erro do lote, com o corpo salvo."""
+        resposta = uploaders.wigle_post(api_name="usuario_teste", api_token="token_de_teste",
+                                        filename="x.csv", content=b"WigleWifi-1.6,x\n",
+                                        base="http://127.0.0.1:1")  # porta morta: erro de rede
+        self.assertEqual(resposta["status"], "erro")
+
+        for corpo, esperado in [
+            ({"results": 42}, "ok"),                       # sem success, HTTP 200
+            ({"success": False, "message": "formato inválido"}, "erro"),
+            ({"success": True, "results": []}, "ok"),
+        ]:
+            self.assertTrue(uploaders.primeiro_resultado_wigle(corpo) == {}
+                            or isinstance(uploaders.primeiro_resultado_wigle(corpo), dict))
+        self.assertEqual(uploaders.primeiro_resultado_wigle(
+            {"results": {"2026-1": {"transid": "2026-1"}}})["transid"], "2026-1")
+        self.assertEqual(uploaders.primeiro_resultado_wigle(
+            {"results": [{"transid": "A"}, {"transid": "B"}]})["transid"], "A")
+        self.assertEqual(uploaders.primeiro_resultado_wigle({"results": "texto"}), {})
+
     def test_simulacao_nao_envia_nada(self):
         self._importar(5, inicio=500)
         settings = config.load_settings()
