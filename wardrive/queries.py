@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from . import config
+from . import config, geo
 
 # MAC completo (aceita ":" ou "-") ou chave de célula — usado para decidir se o
 # filtro do mapa é por identificador de rede ou por nome
@@ -313,15 +313,8 @@ CELULA_LOCAL = "*2000"
 
 
 def _distancia_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Haversine (raio médio da Terra)."""
-    from math import asin, cos, radians, sin, sqrt
-
-    if None in (lat1, lon1, lat2, lon2):
-        return 0.0
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
-    return 2 * 6371.0088 * asin(sqrt(a))
+    """Haversine — a implementação fica em geo, compartilhada com privacidade."""
+    return geo.distancia_km(lat1, lon1, lat2, lon2)
 
 
 def rastreadores(conn, *, de: str = "", ate: str = "", minimo_sessoes: int = 4,

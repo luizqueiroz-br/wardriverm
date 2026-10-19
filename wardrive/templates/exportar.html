@@ -4,6 +4,47 @@
 {% block conteudo %}
 <h1>Exportar CSVs compatíveis</h1>
 
+{% if confirmacao %}
+<div class="cartao" style="margin-bottom:14px; border-color:#7a5a12; background:#1f1a10">
+  <h2 style="margin-bottom:6px">⚠ Áreas privadas vão omitir dados deste lote</h2>
+  <p>
+    Da seleção atual, <strong>{{ confirmacao.aviso.omitidas }} linha(s)</strong> serão
+    excluídas{% if confirmacao.aviso.zeradas %} e <strong>{{ confirmacao.aviso.zeradas }}</strong>
+    ficarão sem coordenada{% endif %} — de {{ confirmacao.aviso.total }} linhas.
+  </p>
+  {% if confirmacao.aviso.por_area %}
+  <ul class="lista-limpa" style="max-width:520px">
+    {% for rotulo, n in confirmacao.aviso.por_area.items() %}
+      <li><span>{{ rotulo }}</span><span class="mono">{{ n }} linha(s)</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <div class="linha-botoes" style="margin-top:10px">
+    <form method="post" action="{{ url_for('ui.exportar_criar') }}">
+      {% for nome, valor in confirmacao.campos %}
+        <input type="hidden" name="{{ nome }}" value="{{ valor }}">
+      {% endfor %}
+      <input type="hidden" name="confirmar_privacidade" value="1">
+      <button type="submit" class="principal">Entendi, gerar mesmo assim</button>
+    </form>
+    <a class="botao" href="{{ url_for('ui.exportar') }}">Cancelar</a>
+  </div>
+</div>
+{% endif %}
+
+{% if areas %}
+<div class="cartao" style="margin-bottom:14px">
+  <h2 style="margin-bottom:6px">Áreas privadas ativas ({{ areas|length }})</h2>
+  <p class="texto-fraco" style="margin:0">
+    {% for a in areas %}
+      <span class="etiqueta">{{ a.rotulo or ('área ' ~ a.id) }} · {{ a.raio_m }} m ·
+        {{ 'excluir' if a.modo == 'excluir' else 'sem GPS' }}</span>
+    {% endfor %}
+    — <a href="{{ url_for('ui.config_page') }}#areas-privadas">editar em Config</a>
+  </p>
+</div>
+{% endif %}
+
 <div class="grade c2">
   <div class="cartao">
     <h2>Gerar um lote</h2>

@@ -21,7 +21,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from . import config
+from . import config, privacidade
 
 TARGET_LIMITS = config.TARGETS
 
@@ -304,6 +304,12 @@ def create_export(conn, *, target: str, selection: dict, settings: dict, label: 
     selection.setdefault("dedupe", settings["export"].get("dedupe", "exact"))
 
     rows = fetch_rows(conn, selection, exclude_target=target if selection.get("mode") == "new" else None)
+    total_selecionado = len(rows)
+    # áreas privadas: o dado da casa/trabalho não sai daqui. As linhas omitidas
+    # também não entram no mapa de cobertura, então continuam pendentes (se a área
+    # for removida depois, elas voltam para a fila em vez de sumirem para sempre).
+    rows, resumo_privacidade = privacidade.aplicar(rows, privacidade.listar(conn))
+    resumo_privacidade["total_selecionado"] = total_selecionado
     cobertos = fetch_covered_map(conn, selection,
                                  exclude_target=target if selection.get("mode") == "new" else None)
     preheader_fields = pick_preheader(conn, rows, selection, settings, target)
@@ -322,6 +328,7 @@ def create_export(conn, *, target: str, selection: dict, settings: dict, label: 
         "label": label,
         "selection": selection,
         "rows": len(rows),
+        "privacidade": resumo_privacidade,
         "chunks": [],
         "preheader": build_preheader(preheader_fields),
         "header": ",".join(config.WIGLE_COLUMNS),
@@ -412,7 +419,7 @@ def create_export(conn, *, target: str, selection: dict, settings: dict, label: 
         (len(chunks), len(rows), total_bytes, export_id),
     )
     return {"export_id": export_id, "dir": str(out_dir), "rows": len(rows), "chunks": len(chunks),
-            "bytes": total_bytes, "manifest": manifest}
+            "bytes": total_bytes, "manifest": manifest, "privacidade": resumo_privacidade}
 
 
 def write_upload_scripts(out_dir: Path, target: str, manifest: dict, settings: dict) -> None:

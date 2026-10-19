@@ -103,6 +103,67 @@
   </div>
 </form>
 
+<div class="cartao" id="areas-privadas" style="margin-top:14px">
+  <h2>Áreas privadas <span class="texto-fraco" style="font-size:12px">— onde nada é publicado</span></h2>
+  <p class="texto-fraco" style="margin-top:0">
+    Exportar é publicar: um raio em volta de casa (ou do trabalho) impede que a
+    coordenada saia no CSV enviado ao WiGLE/WDGoWars. A regra vale para exportação
+    manual, automática e upload — e o lote registra quantas linhas foram omitidas.
+  </p>
+
+  {% if areas %}
+  <div class="tabela-rolagem" style="margin-bottom:12px">
+    <table>
+      <thead><tr><th>rótulo</th><th>centro</th><th class="num">raio</th><th>o que fazer</th><th></th></tr></thead>
+      <tbody>
+        {% for a in areas %}
+        <tr>
+          <td>{{ a.rotulo or ('área ' ~ a.id) }}</td>
+          <td class="mono">{{ '%.5f'|format(a.lat) }}, {{ '%.5f'|format(a.lon) }}</td>
+          <td class="num">{{ a.raio_m }} m</td>
+          <td>{{ modos_privacidade.get(a.modo, a.modo) }}</td>
+          <td>
+            <form method="post" action="{{ url_for('ui.config_area_excluir', area_id=a.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="mini">remover</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="texto-fraco">Nenhuma área cadastrada — hoje tudo que está no banco pode ser exportado.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('ui.config_area_salvar') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grade c4">
+      <div class="campo"><label for="lat">latitude</label>
+        <input type="text" id="lat" name="lat" placeholder="-23.2793159" required></div>
+      <div class="campo"><label for="lon">longitude</label>
+        <input type="text" id="lon" name="lon" placeholder="-47.2872314" required></div>
+      <div class="campo"><label for="raio_m">raio (m)</label>
+        <input type="number" id="raio_m" name="raio_m" value="200" min="50" max="50000" step="50"></div>
+      <div class="campo"><label for="modo">o que fazer</label>
+        <select id="modo" name="modo">
+          {% for chave, texto in modos_privacidade.items() %}
+            <option value="{{ chave }}">{{ texto }}</option>
+          {% endfor %}
+        </select></div>
+      <div class="campo largo"><label for="rotulo">rótulo</label>
+        <input type="text" id="rotulo" name="rotulo" placeholder="casa, trabalho, portaria…" maxlength="60"></div>
+    </div>
+    <div class="linha-botoes" style="margin-top:10px">
+      <button type="submit" class="mini">adicionar área</button>
+      <span class="texto-fraco">
+        pegue a coordenada no mapa: <a href="{{ url_for('ui.mapa') }}">abrir o mapa</a>
+      </span>
+    </div>
+  </form>
+</div>
+
 <div class="cartao" style="margin-top:14px">
   <h2>Onde ficam as coisas</h2>
   <ul class="lista-limpa">

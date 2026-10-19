@@ -248,6 +248,10 @@ def export_and_upload(conn, *, target: str, selection: dict, settings: dict, lab
     if job:
         job.write(f"export #{created['export_id']}: {created['rows']} linhas em {created['chunks']} arquivo(s) "
                   f"({created['bytes'] // 1024} KB) em {created['dir']}")
+        priv = created.get("privacidade") or {}
+        if priv.get("omitidas") or priv.get("zeradas"):
+            job.write(f"áreas privadas: {priv.get('omitidas', 0)} linha(s) omitida(s) e "
+                      f"{priv.get('zeradas', 0)} sem coordenada")
     if created["rows"] == 0:
         return {"export": created, "upload": None,
                 "message": "nenhuma linha corresponde à seleção — nada foi enviado"}

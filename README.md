@@ -61,6 +61,11 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Áreas privadas**: raios (casa, trabalho) onde **nada é publicado** — a linha sai
+  do CSV, ou fica sem coordenada, no modo "sem GPS". Vale para exportação manual,
+  automática e upload (o filtro roda dentro do gerador de lote, no caminho único).
+  Antes de gerar, uma prévia obrigatória mostra quantas linhas serão omitidas e por
+  qual área, com opção de cancelar; o manifesto do lote registra a contagem.
 * **Rastreadores**: lista os dispositivos BLE vistos em muitas sessões **e** em muitos
   lugares diferentes ao longo de horas — o padrão de quem acompanha o percurso (tag,
   fone, carro). Aparelho fixo cai fora por construção: aparece em várias sessões, mas

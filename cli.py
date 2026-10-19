@@ -158,6 +158,11 @@ def cmd_exportar(args) -> int:
                                         settings=settings, label=args.rotulo)
     print(f"Lote #{criado['export_id']}: {criado['rows']} linhas em {criado['chunks']} arquivo(s), "
           f"{criado['bytes'] / 1024:.0f} KB")
+    priv = criado.get("privacidade") or {}
+    if priv.get("omitidas") or priv.get("zeradas"):
+        print(f"  áreas privadas: {priv.get('omitidas', 0)} linha(s) omitida(s), "
+              f"{priv.get('zeradas', 0)} sem coordenada "
+              f"(de {priv.get('total_selecionado', 0)} na seleção)")
     print(f"Pasta: {criado['dir']}")
     for chunk in criado["manifest"]["chunks"]:
         print(f"  {chunk['file']}: {chunk['rows']} linhas, {chunk['bytes'] / 1024:.0f} KB")

@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 
-from . import (categorias, config, db, exporter, importer, queries, uploaders,
+from . import (categorias, config, db, exporter, importer, privacidade, queries, uploaders,
                upload_service)
 from .jobs import runner
 
@@ -262,7 +262,8 @@ def exportar():
     conn = db.get_db()
     return render_template("exportar.html", exports=queries.exports(conn, 60),
                            sessoes=queries.sessions(conn, limit=300),
-                           resumo=queries.overview(conn), args=_page_args())
+                           resumo=queries.overview(conn), args=_page_args(),
+                           areas=privacidade.listar(conn))
 
 
 @ui.post("/exportar")
@@ -275,6 +276,19 @@ def exportar_criar():
     selection = _selection_from_form(form)
     settings = config.load_settings()
 
+    # prévia obrigatória: exportar é publicar. Se alguma linha cai em área privada,
+    # a pessoa vê quantas e de qual área antes de confirmar.
+    if form.get("confirmar_privacidade") != "1":
+        aviso = privacidade.previa(conn, selection)
+        if aviso["omitidas"] or aviso["zeradas"]:
+            return render_template(
+                "exportar.html", exports=queries.exports(conn, 60),
+                sessoes=queries.sessions(conn, limit=300),
+                resumo=queries.overview(conn), args=_page_args(),
+                areas=privacidade.listar(conn),
+                confirmacao={"aviso": aviso, "campos": list(form.items(multi=True))},
+            )
+
     def _task(job, selection, target, label):
         with db.session() as task_conn:
             job.set_total(len(selection.get("file_ids") or []) or 1, "etapas")
@@ -282,6 +296,11 @@ def exportar_criar():
                                              settings=settings, label=label)
             job.tick(f"export #{created['export_id']} criado: {created['rows']} linhas, "
                      f"{created['chunks']} arquivo(s)")
+            priv = created.get("privacidade") or {}
+            if priv.get("omitidas") or priv.get("zeradas"):
+                job.write(f"áreas privadas: {priv.get('omitidas', 0)} linha(s) omitida(s), "
+                          f"{priv.get('zeradas', 0)} sem coordenada "
+                          f"({', '.join(f'{k}: {v}' for k, v in priv.get('por_area', {}).items())})")
             return created
 
     job = runner.submit("export", f"Exportação {config.TARGETS[target]['label']}", _task,
@@ -508,8 +527,39 @@ def importar_purgar():
 
 @ui.get("/config")
 def config_page():
+    conn = db.get_db()
     return render_template("config.html", cfg=config.load_settings(),
-                           pastas=config.load_settings()["ward_dirs"])
+                           pastas=config.load_settings()["ward_dirs"],
+                           areas=privacidade.listar(conn),
+                           modos_privacidade=privacidade.MODOS)
+
+
+@ui.post("/config/areas")
+def config_area_salvar():
+    """Cadastra um raio onde nada é publicado."""
+    conn = db.get_db()
+    try:
+        area_id = privacidade.salvar(
+            conn,
+            lat=float(request.form.get("lat", "").replace(",", ".")),
+            lon=float(request.form.get("lon", "").replace(",", ".")),
+            raio_m=int(float(request.form.get("raio_m", "200").replace(",", "."))),
+            rotulo=request.form.get("rotulo", ""),
+            modo=request.form.get("modo", "excluir"),
+        )
+    except (TypeError, ValueError) as exc:
+        flash(f"Não deu para salvar a área: {exc}", "erro")
+    else:
+        flash(f"Área privada #{area_id} salva.", "ok")
+    return redirect(url_for("ui.config_page") + "#areas-privadas")
+
+
+@ui.post("/config/areas/<int:area_id>/excluir")
+def config_area_excluir(area_id: int):
+    conn = db.get_db()
+    privacidade.remover(conn, area_id)
+    flash(f"Área privada #{area_id} removida — o dado dela volta a ser publicado.", "ok")
+    return redirect(url_for("ui.config_page") + "#areas-privadas")
 
 
 @ui.post("/config")

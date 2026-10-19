@@ -124,6 +124,17 @@ CREATE TABLE IF NOT EXISTS dispositivos_conhecidos (
     criado_em TEXT NOT NULL
 );
 
+-- raios onde nada é publicado (casa, trabalho): aplicados na exportação e no envio
+CREATE TABLE IF NOT EXISTS areas_privadas (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    lat       REAL NOT NULL,
+    lon       REAL NOT NULL,
+    raio_m    INTEGER NOT NULL,
+    rotulo    TEXT,
+    modo      TEXT NOT NULL DEFAULT 'excluir',
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS exports (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at     TEXT NOT NULL,
@@ -238,6 +249,10 @@ def migrar(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_net_categoria ON networks(categoria)")
     conn.execute("""CREATE TABLE IF NOT EXISTS dispositivos_conhecidos (
         mac TEXT PRIMARY KEY, rotulo TEXT, criado_em TEXT NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS areas_privadas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, lat REAL NOT NULL, lon REAL NOT NULL,
+        raio_m INTEGER NOT NULL, rotulo TEXT, modo TEXT NOT NULL DEFAULT 'excluir',
+        criado_em TEXT NOT NULL DEFAULT (datetime('now')))""")
     conn.commit()
 
 
