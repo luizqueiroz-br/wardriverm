@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 {% endblock %}
 
 {% block conteudo %}
@@ -31,6 +32,8 @@
   <label class="check"><input type="checkbox" name="tipo" value="WIFI" checked> Wi-Fi</label>
   <label class="check"><input type="checkbox" name="tipo" value="BLE" checked> BLE</label>
   <label class="check"><input type="checkbox" name="tipo" value="BT"> BT</label>
+  <label class="check" title="camada de densidade sobre os marcadores">
+    <input type="checkbox" id="calor" name="calor" value="1" {{ 'checked' if request.args.get('calor', '1') != '0' }}> mapa de calor</label>
   <div class="campo"><label>&nbsp;</label><button type="submit" class="principal">Aplicar</button></div>
 </form>
 
@@ -42,6 +45,12 @@
   <span><i style="background:#7aa2ff"></i>BLE / Bluetooth LE</span>
   <span><i style="background:#a98bff"></i>Bluetooth clássico</span>
   <span><i style="background:#ffb454"></i>celular</span>
+  <span><i class="gradiente-calor"></i>calor: menos → mais coletas</span>
+  <label class="check" style="margin-left:auto; gap:8px">peso do calor
+    <select id="calor-peso" name="calor_peso" style="min-width:210px">
+      <option value="densidade">densidade (cada coleta)</option>
+      <option value="sinal">sinal (RSSI forte esquenta)</option>
+    </select></label>
   <span id="mapa-info" class="texto-fraco"></span>
 </div>
 <p class="solta-baixo">

@@ -23,6 +23,10 @@ def create_app(settings_overrides: dict | None = None) -> Flask:
         APP_VERSION=config.APP_VERSION,
         MAX_CONTENT_LENGTH=256 * 1024 * 1024,   # upload de arquivos grandes pelo navegador
         JSON_SORT_KEYS=False,
+        # ferramenta local: sem cache de template/estático (senão editar a interface
+        # exige reiniciar o serviço para ver a mudança)
+        TEMPLATES_AUTO_RELOAD=True,
+        SEND_FILE_MAX_AGE_DEFAULT=0,
     )
 
     if settings_overrides:

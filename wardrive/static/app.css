@@ -50,7 +50,7 @@ code, pre, .mono { font-family: "Cascadia Mono", Consolas, monospace; font-size:
   background: var(--alerta); margin-left: 4px; vertical-align: middle;
 }
 
-.principal { max-width: 1400px; margin: 0 auto; padding: 18px 20px 60px; }
+.conteudo { max-width: 1400px; margin: 0 auto; padding: 18px 20px 60px; }
 
 /* ----------------------------------------------------------------- cards */
 h1 { font-size: 21px; margin: 4px 0 16px; font-weight: 650; }
@@ -113,6 +113,9 @@ form.filtros {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 14px;
   background: var(--bg2); border: 1px solid var(--linha); border-radius: 10px; padding: 12px;
 }
+/* botões da barra de filtros: altura fixa para não esticarem na altura da linha */
+form.filtros button, form.filtros .botao { height: 34px; align-self: flex-end; }
+form.filtros .campo { justify-content: flex-end; }
 label { display: block; color: var(--fraco); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
 input[type=text], input[type=search], input[type=date], input[type=number], input[type=password], select, textarea {
   background: var(--bg); color: var(--texto); border: 1px solid var(--linha); border-radius: 7px;
@@ -156,6 +159,10 @@ button.desativado, button[disabled] { opacity: .45; cursor: not-allowed; }
 .leaflet-popup-content { color: #111; }
 .legenda { display: flex; gap: 14px; flex-wrap: wrap; color: var(--fraco); font-size: 12px; margin-top: 10px; }
 .legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+.legenda i.gradiente-calor {
+  width: 66px; height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, #1f3b73, #2e9bd6, #48d295, #ffd166, #ff5252);
+}
 
 /* ---------------------------------------------------------------- diversos */
 .paginacao { display: flex; gap: 8px; align-items: center; margin-top: 12px; color: var(--fraco); font-size: 12px; }

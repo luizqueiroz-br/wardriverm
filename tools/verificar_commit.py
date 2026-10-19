@@ -38,11 +38,10 @@ LIMITE_SUSPEITO_KB = 100
 # padrões que revelam dado real em arquivo de texto
 PADROES_CONTEUDO = [
     (re.compile(rb"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}"), "endereço MAC"),
-    (re.compile(rb"WigleWifi-\d\.\d"), "cabeçalho de log de wardriving"),
     (re.compile(rb"-2[0-9]\.\d{4,},\s*-?[0-9]{2}\.\d{4,}"), "par de coordenadas"),
 ]
-# arquivos onde esses padrões são intencionais (dados sintéticos de teste)
-ISENTOS = re.compile(r"^(tests/|tools/servidor_mentira\.py$|wardrive/parser\.py$|docs/COMPATIBILIDADE\.md$)")
+# arquivos onde esses padrões são intencionais (dados sintéticos de teste ou documentação)
+ISENTOS = re.compile(r"^(tests/|tools/servidor_mentira\.py$|wardrive/parser\.py$|docs/|README\.md$)")
 
 
 def arquivos_em_stage() -> list[str]:

@@ -130,8 +130,78 @@
     }).addTo(mapa);
 
     const cores = { WIFI: "#4ad295", BLE: "#7aa2ff", BT: "#a98bff" };
+
+    // camada de calor (densidade das coletas): criada antes dos marcadores para
+    // ficar embaixo deles; ligar/desligar só alterna a visibilidade do canvas
+    const controleCalor = document.getElementById("calor");
+    const controlePeso = document.getElementById("calor-peso");
+    const camadaCalor = (window.L && L.heatLayer)
+      ? L.heatLayer([], {
+          radius: 22,
+          blur: 16,
+          maxZoom: 17,
+          max: 1,
+          minOpacity: 0.22,
+          gradient: { 0.2: "#1f3b73", 0.4: "#2e9bd6", 0.6: "#48d295", 0.8: "#ffd166", 1: "#ff5252" },
+        })
+      : null;
+    if (camadaCalor) camadaCalor.addTo(mapa);
+
     const grupo = L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 45 }) : L.layerGroup();
     mapa.addLayer(grupo);
+    let ultimosPontos = [];
+
+    function elementoCalor() {
+      if (!camadaCalor) return null;
+      if (typeof camadaCalor.getElement === "function") return camadaCalor.getElement();
+      return camadaCalor._canvas || null;
+    }
+
+    function pesoCalor(ponto) {
+      if (!controlePeso || controlePeso.value !== "sinal") return 1;
+      const rssi = Number(ponto.rssi);
+      if (!isFinite(rssi)) return 0.4;
+      // -100 dBm → 0,15 (frio) | -40 dBm → 1,0 (quente)
+      return Math.max(0.15, Math.min(1, (rssi + 100) / 60));
+    }
+
+    function escalaCalor(pontos) {
+      // O leaflet.heat acumula os pontos em células de r/2 px na tela, com o valor
+      // somado limitado a `max`. A escala certa é, então, o 90º percentil dessas
+      // MESMAS células para a vista atual — senão tudo satura (ou fica invisível).
+      if (pontos.length < 12) return 1;
+      const celula = Math.max(4, Math.floor((camadaCalor.options.radius || 22) / 2));
+      const somas = new Map();
+      for (const p of pontos) {
+        const ponto = mapa.latLngToContainerPoint([p.lat, p.lon]);
+        const chave = Math.floor(ponto.x / celula) + ":" + Math.floor(ponto.y / celula);
+        // a escala é sempre calculada em contagem de coletas (peso 1), de propósito:
+        // se ela acompanhasse o peso, trocar "densidade" por "sinal" normalizaria tudo
+        // de novo e as duas vistas ficariam iguais
+        somas.set(chave, (somas.get(chave) || 0) + 1);
+      }
+      const valores = Array.from(somas.values()).sort((a, b) => a - b);
+      if (!valores.length) return 1;
+      const p90 = valores[Math.min(valores.length - 1, Math.floor(valores.length * 0.9))];
+      return Math.max(1, Math.round(p90));
+    }
+
+    function desenharCalor() {
+      if (!camadaCalor) return;
+      const ligado = !controleCalor || controleCalor.checked;
+      const validos = ultimosPontos.filter((p) => p.lat != null && p.lon != null);
+      camadaCalor.setOptions({ max: escalaCalor(validos) });
+      camadaCalor.setLatLngs(
+        validos.map((p) => [p.lat, p.lon, pesoCalor(p)])
+      );
+      const elemento = elementoCalor();
+      if (elemento) elemento.style.display = ligado ? "" : "none";
+    }
+
+    if (controleCalor) controleCalor.addEventListener("change", desenharCalor);
+    if (controlePeso) controlePeso.addEventListener("change", desenharCalor);
+    // a densidade por célula muda com o zoom: reescala para o calor continuar legível
+    mapa.on("zoomend", () => { if (camadaCalor) desenharCalor(); });
 
     function cor(tipo) {
       return cores[tipo] || "#ffb454";
@@ -148,6 +218,8 @@
       const params = new URLSearchParams(new FormData(form));
       grupo.clearLayers();
       const dados = await api("/api/mapa/pontos?" + params.toString());
+      ultimosPontos = dados.pontos || [];
+      desenharCalor();
       const limites = [];
       (dados.pontos || []).forEach((p) => {
         if (p.lat == null || p.lon == null) return;

@@ -57,7 +57,9 @@ Pela linha de comando:
   de referência) e detalhe da sessão (metadados, pré-header, área coberta, tabela
   completa de observações).
 * Mapa (Leaflet + OpenStreetMap) com pontos por observação ou uma bolinha por rede,
-  coloridos por tipo e dimensionados pelo RSSI.
+  coloridos por tipo e dimensionados pelo RSSI — mais uma **camada de calor** opcional
+  (densidade das coletas, com peso por contagem ou pelo RSSI) que se reescala com o zoom.
+  As duas camadas convivem: os marcadores/agrupamentos ficam por cima do calor.
 
 **Exportar**
 * Seis modos de seleção: tudo, somente o que **ainda não subiu** para o destino,
