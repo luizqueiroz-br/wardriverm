@@ -43,7 +43,7 @@ PADROES_CONTEUDO = [
 # MACs de exemplo que aparecem em documentação/código: não identificam ninguém,
 # então não devem barrar o commit (senão toda docstring de formato vira bloqueio)
 MAC_PLACEHOLDER = re.compile(
-    rb"(?i)^(?:AA:BB:CC:DD:EE:FF|00:11:22:33:44:55|DE:AD:BE:EF:00:01|FF:FF:FF:FF:FF:FF)$"
+    rb"(?i)^(?:AA:BB:CC:DD:EE:FF|00:11:22:33:44:55|DE:AD:BE:EF:00:01|FF:FF:FF:FF:FF:FF|00:00:00:00:00:00)$"
 )
 
 

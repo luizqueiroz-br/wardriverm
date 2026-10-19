@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block titulo %}Rastreadores{% endblock %}
+
+{% block conteudo %}
+<h1>Algum dispositivo está andando comigo?</h1>
+<p class="texto-fraco" style="max-width:900px">
+  Esta lista não acusa ninguém: ela mostra os dispositivos BLE vistos em
+  <strong>muitas sessões diferentes</strong> e em <strong>muitos lugares diferentes</strong>,
+  ao longo de horas. Um aparelho fixo (sua TV, o roteador do vizinho) aparece em
+  várias sessões, mas sempre no mesmo ponto — e fica de fora. Se algo aqui é seu
+  (fone, relógio, carro), marque como conhecido e ele sai da lista.
+</p>
+
+<form class="filtros" method="get" action="{{ url_for('ui.rastreadores') }}">
+  <div class="campo"><label for="sessoes">mínimo de sessões</label>
+    <input type="number" id="sessoes" name="sessoes" min="1" max="60" value="{{ minimo_sessoes }}"></div>
+  <div class="campo"><label for="locais">mínimo de locais</label>
+    <input type="number" id="locais" name="locais" min="1" max="500" value="{{ minimo_locais }}"></div>
+  <div class="campo"><label for="de">visto de</label><input type="date" id="de" name="de" value="{{ args.de }}"></div>
+  <div class="campo"><label for="ate">até</label><input type="date" id="ate" name="ate" value="{{ args.ate }}"></div>
+  <div class="campo"><label>&nbsp;</label><button type="submit">Filtrar</button></div>
+  <div class="campo"><label>&nbsp;</label><a class="botao" href="{{ url_for('ui.rastreadores') }}">Padrão</a></div>
+</form>
+
+<div class="cartao">
+  <h2 style="margin-bottom:8px">Candidatos <span class="texto-fraco">({{ page.total }})</span></h2>
+  {% if itens %}
+  <div class="tabela-rolagem">
+  <table>
+    <thead>
+      <tr>
+        <th>dispositivo</th><th>objeto</th>
+        <th class="num">sessões</th><th class="num">locais</th><th class="num">extensão</th>
+        <th>primeira vez</th><th>última vez</th>
+        <th class="num">RSSI méd</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in itens %}
+      <tr>
+        <td>
+          {% if r.ssid %}<strong>{{ r.ssid }}</strong><br>{% endif %}
+          <a class="mono" href="{{ url_for('ui.rede_detalhe', mac=r.mac) }}">{{ r.mac }}</a>
+          {% if r.vendor %}<div class="texto-fraco" style="font-size:12px">{{ r.vendor }}</div>{% endif %}
+        </td>
+        <td>
+          <span class="etiqueta objeto" style="--cor: {{ cores_categoria.get(r.categoria or 'desconhecido', '#55607a') }}"
+                title="força {{ r.forca }} = sessões × locais">
+            {{ icones_categoria.get(r.categoria or 'desconhecido', '❓') }}
+            {{ nomes_categoria.get(r.categoria or 'desconhecido', 'não identificado') }}</span>
+        </td>
+        <td class="num" title="sessões distintas em que apareceu">{{ r.sessoes }}</td>
+        <td class="num" title="células de ~55 m distintas">{{ r.locais }}</td>
+        <td class="num" title="diagonal da área onde foi visto">{{ r.extensao_km }} km</td>
+        <td class="mono">{{ r.primeira }}</td>
+        <td class="mono">{{ r.ultima }}</td>
+        <td class="num">{{ r.rssi_medio if r.rssi_medio is not none else '—' }}</td>
+        <td>
+          <div class="linha-botoes">
+            <a class="botao mini" href="{{ url_for('ui.mapa') }}?mac={{ r.mac }}">mapa</a>
+            <form method="post" action="{{ url_for('ui.rastreador_conhecido') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="mac" value="{{ r.mac }}">
+              <input type="hidden" name="rotulo" value="{{ r.ssid or '' }}">
+              <button type="submit" class="mini" title="é meu: sai da lista">é meu</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="paginacao">
+    {% if page.pagina > 1 %}
+      <a href="{{ url_for('ui.rastreadores', sessoes=minimo_sessoes, locais=minimo_locais, de=args.de, ate=args.ate, pagina=page.pagina-1) }}">← anterior</a>
+    {% endif %}
+    <span>página {{ page.pagina }} de {{ page.paginas }}</span>
+    {% if page.pagina < page.paginas %}
+      <a href="{{ url_for('ui.rastreadores', sessoes=minimo_sessoes, locais=minimo_locais, de=args.de, ate=args.ate, pagina=page.pagina+1) }}">próxima →</a>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="texto-fraco" style="margin:0">
+    Nenhum dispositivo passou dos limites atuais. Baixe o mínimo de sessões/locais
+    para ver mais candidatos (com 3 e 3 aparece quase tudo que é seu).
+  </p>
+  {% endif %}
+</div>
+
+{% if conhecidos %}
+<div class="cartao" style="margin-top:14px">
+  <h2 style="margin-bottom:8px">Marcados como meus <span class="texto-fraco">({{ conhecidos|length }})</span></h2>
+  <div class="tabela-rolagem">
+  <table>
+    <thead><tr><th>MAC</th><th>rótulo</th><th>quando</th><th></th></tr></thead>
+    <tbody>
+      {% for k in conhecidos %}
+      <tr>
+        <td class="mono">{{ k.mac }}</td>
+        <td>{{ k.rotulo or k.ssid or '(sem rótulo)' }}</td>
+        <td class="mono">{{ k.criado_em }}</td>
+        <td>
+          <form method="post" action="{{ url_for('ui.rastreador_esquecer') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="mac" value="{{ k.mac }}">
+            <button type="submit" class="mini">voltar à lista</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -117,6 +117,13 @@ CREATE TABLE IF NOT EXISTS oui (
     vendor TEXT NOT NULL
 );
 
+-- dispositivos que o usuário reconhece como seus (some da lista de rastreadores)
+CREATE TABLE IF NOT EXISTS dispositivos_conhecidos (
+    mac       TEXT PRIMARY KEY,
+    rotulo    TEXT,
+    criado_em TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS exports (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at     TEXT NOT NULL,
@@ -229,6 +236,8 @@ def migrar(conn: sqlite3.Connection) -> None:
         if coluna not in colunas_redes:
             conn.execute(f"ALTER TABLE networks ADD COLUMN {coluna} {tipo}")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_net_categoria ON networks(categoria)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS dispositivos_conhecidos (
+        mac TEXT PRIMARY KEY, rotulo TEXT, criado_em TEXT NOT NULL)""")
     conn.commit()
 
 

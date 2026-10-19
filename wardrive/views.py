@@ -173,6 +173,64 @@ def rede_detalhe(mac: str):
 
 
 # --------------------------------------------------------------------------- #
+# rastreadores (BLE que acompanha o percurso)
+# --------------------------------------------------------------------------- #
+@ui.get("/rastreadores")
+def rastreadores():
+    conn = db.get_db()
+    args = _page_args()
+    per_page = 50
+    try:
+        minimo_sessoes = max(1, int(request.args.get("sessoes", 4)))
+    except ValueError:
+        minimo_sessoes = 4
+    try:
+        minimo_locais = max(1, int(request.args.get("locais", 4)))
+    except ValueError:
+        minimo_locais = 4
+    filtros: dict = dict(de=args["de"], ate=args["ate"], minimo_sessoes=minimo_sessoes,
+                         minimo_locais=minimo_locais, incluir_conhecidos=False)
+    itens, total = queries.rastreadores(conn, limit=per_page,
+                                        offset=(args["pagina"] - 1) * per_page, **filtros)
+    page = _paginate(total, per_page, args["pagina"])
+    itens, _ = queries.rastreadores(conn, limit=per_page, offset=page["offset"], **filtros)
+    return render_template("rastreadores.html", itens=itens, page=page, args=args,
+                           minimo_sessoes=minimo_sessoes, minimo_locais=minimo_locais,
+                           conhecidos=queries.conhecidos(conn),
+                           nomes_categoria=categorias.CATEGORIAS,
+                           cores_categoria=categorias.CORES,
+                           icones_categoria=categorias.ICONES)
+
+
+@ui.post("/rastreadores/conhecido")
+def rastreador_conhecido():
+    conn = db.get_db()
+    mac = request.form.get("mac", "")
+    if not mac:
+        abort(400)
+    queries.marcar_conhecido(conn, mac, request.form.get("rotulo", ""))
+    flash(f"{mac} marcado como conhecido — não aparece mais na lista de rastreadores.", "ok")
+    return redirect(url_for("ui.rastreadores", **_querystring_visivel()))
+
+
+@ui.post("/rastreadores/esquecer")
+def rastreador_esquecer():
+    conn = db.get_db()
+    mac = request.form.get("mac", "")
+    if not mac:
+        abort(400)
+    queries.esquecer_conhecido(conn, mac)
+    flash(f"{mac} voltou para a lista de candidatos.", "ok")
+    return redirect(url_for("ui.rastreadores", **_querystring_visivel()))
+
+
+def _querystring_visivel() -> dict:
+    """Mantém os filtros da tela ao voltar de um POST."""
+    chaves = ("de", "ate", "sessoes", "locais", "pagina")
+    return {k: v for k, v in request.args.items() if k in chaves and v}
+
+
+# --------------------------------------------------------------------------- #
 # mapa
 # --------------------------------------------------------------------------- #
 def _objetos_para_mapa() -> dict:

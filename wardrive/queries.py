@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from . import config
 
@@ -299,6 +300,113 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
 def normalizar_mac_item(valor: str) -> str:
     """MAC colado de qualquer forma vira o formato do banco (AA:BB:CC:DD:EE:FF)."""
     return (valor or "").strip().replace("-", ":").upper()
+
+
+# --------------------------------------------------------------------------- #
+# Rastreadores (dispositivos BLE que andam junto com o percurso)
+# --------------------------------------------------------------------------- #
+#: MACs que não identificam nada (dispositivo anunciando zeros/broadcast)
+MACS_INVALIDOS = ("00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF")
+
+#: célula de ~55 m para contar "locais distintos" (0,0005° ≈ 55 m na latitude de SP)
+CELULA_LOCAL = "*2000"
+
+
+def _distancia_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Haversine (raio médio da Terra)."""
+    from math import asin, cos, radians, sin, sqrt
+
+    if None in (lat1, lon1, lat2, lon2):
+        return 0.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 2 * 6371.0088 * asin(sqrt(a))
+
+
+def rastreadores(conn, *, de: str = "", ate: str = "", minimo_sessoes: int = 4,
+                 minimo_locais: int = 4, horas_minimas: float = 12,
+                 incluir_conhecidos: bool = False, limit: int = 50,
+                 offset: int = 0) -> tuple[list[dict], int]:
+    """Dispositivos BLE/BT vistos em muitas sessões e em muitos lugares.
+
+    A ideia: um rastreador (tag, fone, carro) acompanha o percurso — aparece em
+    sessões diferentes, em pontos distantes entre si, ao longo de horas. Um aparelho
+    fixo (sua TV, o AP do vizinho) aparece em muitas sessões, mas sempre no mesmo
+    lugar, então cai fora pelo critério de locais distintos.
+    """
+    where = ["o.type IN ('BLE','BT')", "o.has_gps = 1",
+             f"o.mac NOT IN ({','.join('?' * len(MACS_INVALIDOS))})"]
+    params: list = list(MACS_INVALIDOS)
+    if de:
+        where.append("o.first_seen >= ?")
+        params.append(de)
+    if ate:
+        where.append("o.first_seen <= ?")
+        params.append(ate + " 23:59:59" if len(ate) == 10 else ate)
+
+    base = f"""        WITH base AS (
+            SELECT o.mac, o.file_id, o.first_seen, o.lat, o.lon, o.rssi, o.ssid
+              FROM observations o
+             WHERE {' AND '.join(where)}
+        )
+        SELECT b.mac,
+               MAX(b.ssid) AS ssid,
+               COUNT(*) AS obs,
+               COUNT(DISTINCT b.file_id) AS sessoes,
+               COUNT(DISTINCT round(b.lat{CELULA_LOCAL})||','||round(b.lon{CELULA_LOCAL})) AS locais,
+               MIN(b.first_seen) AS primeira,
+               MAX(b.first_seen) AS ultima,
+               MIN(b.lat) AS lat_min, MAX(b.lat) AS lat_max,
+               MIN(b.lon) AS lon_min, MAX(b.lon) AS lon_max,
+               MAX(b.rssi) AS rssi_max,
+               ROUND(AVG(b.rssi), 1) AS rssi_medio,
+               MAX(n.categoria) AS categoria,
+               MAX(n.vendor) AS vendor,
+               COUNT(DISTINCT b.file_id) *
+                 COUNT(DISTINCT round(b.lat{CELULA_LOCAL})||','||round(b.lon{CELULA_LOCAL})) AS forca
+          FROM base b LEFT JOIN networks n ON n.mac = b.mac
+         GROUP BY b.mac
+        HAVING sessoes >= ? AND locais >= ?
+           AND (julianday(MAX(b.first_seen)) - julianday(MIN(b.first_seen))) >= ?
+    """
+    argumentos = params + [int(minimo_sessoes), int(minimo_locais), float(horas_minimas) / 24.0]
+    if not incluir_conhecidos:
+        base += " AND b.mac NOT IN (SELECT mac FROM dispositivos_conhecidos)"
+    total = conn.execute(f"SELECT COUNT(*) FROM ({base})", tuple(argumentos)).fetchone()[0]
+    linhas = conn.execute(
+        base + " ORDER BY forca DESC, locais DESC, sessoes DESC LIMIT ? OFFSET ?",
+        tuple(argumentos) + (int(limit), int(offset)),
+    ).fetchall()
+    saida = []
+    for linha in linhas:
+        item = dict(linha)
+        # extensão = diagonal da caixa que envolve os pontos (proxy barato do alcance)
+        item["extensao_km"] = round(
+            _distancia_km(item["lat_min"], item["lon_min"], item["lat_max"], item["lon_max"]), 1)
+        item["mac_valido"] = item["mac"] not in MACS_INVALIDOS
+        saida.append(item)
+    return saida, total
+
+
+def marcar_conhecido(conn, mac: str, rotulo: str = "") -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO dispositivos_conhecidos (mac, rotulo, criado_em) VALUES (?,?,?)",
+        (normalizar_mac_item(mac), (rotulo or "").strip() or None, datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+
+
+def esquecer_conhecido(conn, mac: str) -> None:
+    conn.execute("DELETE FROM dispositivos_conhecidos WHERE mac = ?", (normalizar_mac_item(mac),))
+    conn.commit()
+
+
+def conhecidos(conn) -> list[dict]:
+    return [dict(r) for r in conn.execute(
+        """SELECT k.mac, k.rotulo, k.criado_em, n.ssid, n.categoria, n.vendor
+             FROM dispositivos_conhecidos k LEFT JOIN networks n ON n.mac = k.mac
+            ORDER BY k.criado_em DESC""")]
 
 
 def map_resumo(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",

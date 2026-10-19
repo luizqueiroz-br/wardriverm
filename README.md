@@ -61,6 +61,11 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Rastreadores**: lista os dispositivos BLE vistos em muitas sessões **e** em muitos
+  lugares diferentes ao longo de horas — o padrão de quem acompanha o percurso (tag,
+  fone, carro). Aparelho fixo cai fora por construção: aparece em várias sessões, mas
+  sempre no mesmo ponto. Cada candidato mostra sessões, locais distintos, extensão em
+  km, período e RSSI, com "ver no mapa" e "é meu" (marca como conhecido e some da lista).
 * **Classificação por tipo de objeto** (26 tipos): roteador/AP, celular/tablet,
   computador, veículo, patinete/bike compartilhada, drone, rastreador de frota,
   smart tag, vestível, beacon BLE, casa conectada, medidor de energia, robô aspirador,
