@@ -93,6 +93,16 @@ def cmd_status(args) -> int:
     return 0
 
 
+def cmd_percursos(args) -> int:
+    with db.session() as conn:
+        resultado = queries.recalcular_percursos(conn, forcar=args.forcar)
+        total = queries.progresso_geral(conn)
+    print(f"{resultado['sessoes']} sessão(ões) calculada(s) — +{resultado['km']} km")
+    print(f"Acervo: {total['km']} km em {total['horas']} h de coleta"
+          f"{f' ({total['velocidade_kmh']} km/h médio)' if total['velocidade_kmh'] else ''}")
+    return 0
+
+
 def cmd_categorizar(args) -> int:
     with db.session() as conn:
         if args.baixar:
@@ -288,6 +298,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--forcar", action="store_true", help="reimporta mesmo que já exista")
     p.add_argument("--watch", type=int, default=0, help="repetir a varredura a cada N segundos")
     p.set_defaults(func=cmd_importar)
+
+    p = sub.add_parser("percursos", help="recalcula km/duração/velocidade das sessões")
+    p.add_argument("--forcar", action="store_true", help="recalcula todas, não só as que faltam")
+    p.set_defaults(func=cmd_percursos)
 
     p = sub.add_parser("categorizar", help="classifica as redes em tipos de objeto (roteador, veículo, tag…)")
     p.add_argument("--forcar", action="store_true", help="reclassifica todas (não só as sem categoria)")

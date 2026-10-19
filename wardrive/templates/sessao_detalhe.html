@@ -11,14 +11,21 @@
     <div class="sub">{{ sessao.network_count }} redes distintas</div>
   </div>
   <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">Percurso</div>
+    <div class="valor">{{ sessao.distancia_km | km }} <span style="font-size:13px">km</span></div>
+    <div class="sub">
+      {{ sessao.duracao_s | duracao }} ·
+      {{ sessao.velocidade_kmh | km if sessao.velocidade_kmh is not none else '—' }} km/h médio
+      {% if sessao.distancia_km and sessao.network_count %}
+        · {{ (sessao.network_count / sessao.distancia_km) | km }} redes/km
+      {% endif %}
+      {% if sessao.area_km2 %}· {{ sessao.area_km2 | km }} km² de área{% endif %}
+    </div>
+  </div>
+  <div class="cartao compacto">
     <div class="titulo-kpi">Wi-Fi / BLE</div>
     <div class="valor">{{ sessao.wifi_count }} / {{ sessao.ble_count }}</div>
     <div class="sub">{% if sessao.cell_count %}{{ sessao.cell_count }} celular · {% endif %}RSSI e canais na tabela</div>
-  </div>
-  <div class="cartao compacto">
-    <div class="titulo-kpi">Período</div>
-    <div class="valor" style="font-size:16px">{{ sessao.first_seen or '—' }}</div>
-    <div class="sub">até {{ sessao.last_seen or '—' }}</div>
   </div>
   <div class="cartao compacto {{ 'kpi-alerta' if sessao.no_gps_count else '' }}">
     <div class="titulo-kpi">Sem GPS</div>

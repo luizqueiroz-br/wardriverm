@@ -61,6 +61,11 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Métricas de percurso**: cada sessão mostra **km rodados**, duração, velocidade média,
+  redes por km e área coberta; o painel soma o acervo ("217,7 km em 26,5 h"). Sessão
+  sem GPS aparece como "—", nunca 0 km. Trechos de GPS que "pulam" (> 2 km entre duas
+  leituras) são descartados para não inventar quilometragem. Colunas calculadas na
+  importação e recalculáveis por `cli.py percursos`.
 * **Áreas privadas**: raios (casa, trabalho) onde **nada é publicado** — a linha sai
   do CSV, ou fica sem coordenada, no modo "sem GPS". Vale para exportação manual,
   automática e upload (o filtro roda dentro do gerador de lote, no caminho único).

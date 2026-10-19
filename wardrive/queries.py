@@ -140,6 +140,113 @@ def sessions(conn, *, search: str = "", limit: int = 100, offset: int = 0) -> li
     return [dict(r) for r in rows]
 
 
+# --------------------------------------------------------------------------- #
+# Percurso: quanto foi rodado em cada sessão
+# --------------------------------------------------------------------------- #
+#: salto maior que isso entre duas linhas seguidas é GPS pulando, não deslocamento
+SALTO_MAX_KM = 2.0
+
+
+def stats_percurso(conn, file_id: int, *, gravar: bool = True) -> dict:
+    """Distância, duração, velocidade média, redes/km e área de uma sessão.
+
+    Só entram as observações com GPS, em ordem de `first_seen`. Segmentos maiores
+    que SALTO_MAX_KM são descartados: o GPS do celular/ESP32 às vezes "pula" para
+    outro lugar e contaria centenas de km que ninguém rodou.
+    """
+    linhas = conn.execute(
+        """SELECT lat, lon, first_seen FROM observations
+            WHERE file_id = ? AND has_gps = 1 AND lat IS NOT NULL AND lon IS NOT NULL
+            ORDER BY first_seen, id""",
+        (int(file_id),),
+    ).fetchall()
+    redes = conn.execute(
+        "SELECT COUNT(DISTINCT mac) FROM observations WHERE file_id = ?", (int(file_id),)
+    ).fetchone()[0]
+    base = {"distancia_km": None, "duracao_s": None, "velocidade_kmh": None,
+            "redes_por_km": None, "area_km2": None, "pontos": len(linhas)}
+    if not linhas:
+        return base
+
+    distancia = 0.0
+    saltos = 0
+    anterior = None
+    for linha in linhas:
+        if anterior is not None:
+            trecho = geo.distancia_km(anterior[0], anterior[1], linha["lat"], linha["lon"])
+            if trecho <= SALTO_MAX_KM:
+                distancia += trecho
+            else:
+                saltos += 1
+        anterior = (linha["lat"], linha["lon"])
+
+    # duração pelas datas (texto ISO: comparar como string basta para o mesmo fuso)
+    duracao = None
+    try:
+        t0 = datetime.fromisoformat(linhas[0]["first_seen"])
+        t1 = datetime.fromisoformat(linhas[-1]["first_seen"])
+        duracao = max(0, int((t1 - t0).total_seconds()))
+    except (TypeError, ValueError):
+        duracao = None
+
+    horas = (duracao / 3600) if duracao else 0
+    # área = caixa que envolve os pontos (aproximação honesta: não é a área do trajeto)
+    lats = [l["lat"] for l in linhas]
+    lons = [l["lon"] for l in linhas]
+    area = (geo.distancia_km(min(lats), min(lons), max(lats), min(lons)) *
+            geo.distancia_km(min(lats), min(lons), min(lats), max(lons))) or None
+
+    resultado = {
+        "distancia_km": round(distancia, 2),
+        "duracao_s": duracao,
+        "velocidade_kmh": round(distancia / horas, 1) if horas > 0 and distancia > 0 else None,
+        "redes_por_km": round(redes / distancia, 1) if distancia > 0 else None,
+        "area_km2": round(area, 3) if area else None,
+        "pontos": len(linhas),
+        "saltos_descartados": saltos,
+    }
+    if gravar:
+        conn.execute(
+            """UPDATE files SET distancia_km = ?, duracao_s = ?, velocidade_kmh = ?,
+                      area_km2 = ? WHERE id = ?""",
+            (resultado["distancia_km"], resultado["duracao_s"],
+             resultado["velocidade_kmh"], resultado["area_km2"], int(file_id)),
+        )
+        conn.commit()
+    return resultado
+
+
+def recalcular_percursos(conn, *, forcar: bool = False) -> dict:
+    """Preenche as colunas de percurso (import e CLI chamam isto).
+
+    Sessões sem nenhuma linha com GPS ficam de fora: continuam com NULL e a tela
+    mostra "—" (em vez de 0 km, que seria mentira).
+    """
+    sql = "SELECT id FROM files WHERE obs_count > no_gps_count"
+    if not forcar:
+        sql += " AND distancia_km IS NULL"
+    ids = [r[0] for r in conn.execute(sql).fetchall()]
+    total = 0.0
+    for file_id in ids:
+        total += stats_percurso(conn, file_id).get("distancia_km") or 0
+    return {"sessoes": len(ids), "km": round(total, 1)}
+
+
+def progresso_geral(conn) -> dict:
+    """Total rodado, horas e velocidade média do acervo inteiro."""
+    linha = conn.execute(
+        """SELECT COUNT(*) AS sessoes,
+                  COALESCE(SUM(distancia_km), 0) AS km,
+                  COALESCE(SUM(duracao_s), 0) AS segundos,
+                  COALESCE(SUM(obs_count), 0) AS obs
+             FROM files WHERE distancia_km IS NOT NULL"""
+    ).fetchone()
+    horas = (linha["segundos"] or 0) / 3600
+    return {"sessoes": linha["sessoes"], "km": round(linha["km"] or 0, 1),
+            "horas": round(horas, 1),
+            "velocidade_kmh": round((linha["km"] or 0) / horas, 1) if horas > 0 else None}
+
+
 def session_count(conn, search: str = "") -> int:
     if search:
         like = f"%{search}%"

@@ -19,6 +19,7 @@
   <thead>
     <tr>
       <th>arquivo</th><th>início</th><th>fim</th><th class="num">obs</th>
+      <th class="num">km</th><th class="num">duração</th><th class="num">km/h</th>
       <th class="num">redes</th><th class="num">wifi</th><th class="num">ble</th>
       <th class="num">sem gps</th><th>formato</th><th>enviado</th><th></th>
     </tr>
@@ -33,6 +34,11 @@
       <td class="mono">{{ s.first_seen or '—' }}</td>
       <td class="mono">{{ s.last_seen or '—' }}</td>
       <td class="num">{{ s.obs_count }}</td>
+      <td class="num" title="distância percorrida (soma dos trechos entre leituras com GPS)">
+        {{ s.distancia_km | km }}</td>
+      <td class="num" title="primeira → última leitura">{{ s.duracao_s | duracao }}</td>
+      <td class="num" title="velocidade média, incluindo as paradas">
+        {{ s.velocidade_kmh | km if s.velocidade_kmh is not none else '—' }}</td>
       <td class="num">{{ s.network_count }}</td>
       <td class="num">{{ s.wifi_count }}</td>
       <td class="num">{{ s.ble_count }}</td>

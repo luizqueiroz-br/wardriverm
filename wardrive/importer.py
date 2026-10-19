@@ -111,6 +111,9 @@ def import_bytes(conn, name: str, data: bytes, *, source: str = "upload", path: 
         ],
     )
     db.rebuild_networks(conn, [r["mac"] for r in parsed["rows"]])
+    # métricas de percurso: km, duração, velocidade (uma vez, na importação)
+    from . import queries as _queries
+    _queries.stats_percurso(conn, file_id)
     db.log_event(
         conn, "aviso" if empty else "info", "import",
         (f"Sessão sem resultados importada: {name}" if empty else f"Importado {name}"),

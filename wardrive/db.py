@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS files (
     first_seen     TEXT,
     last_seen      TEXT,
     min_lat REAL, max_lat REAL, min_lon REAL, max_lon REAL,
+    distancia_km REAL, duracao_s INTEGER, velocidade_kmh REAL, area_km2 REAL,
     source         TEXT NOT NULL DEFAULT 'pasta',
     notes          TEXT,
     imported_at    TEXT NOT NULL,
@@ -240,6 +241,18 @@ def migrar(conn: sqlite3.Connection) -> None:
     colunas_arquivos = {linha["name"] for linha in conn.execute("PRAGMA table_info(files)")}
     if "notes" not in colunas_arquivos:
         conn.execute("ALTER TABLE files ADD COLUMN notes TEXT")
+    # métricas de percurso (km, duração, velocidade, área) — preenchidas no import
+    for coluna, tipo in (("distancia_km", "REAL"), ("duracao_s", "INTEGER"),
+                         ("velocidade_kmh", "REAL"), ("area_km2", "REAL")):
+        if coluna not in colunas_arquivos:
+            conn.execute(f"ALTER TABLE files ADD COLUMN {coluna} {tipo}")
+    # preenche o percurso uma vez para quem já tinha sessões antes desta versão
+    faltando = conn.execute(
+        "SELECT COUNT(*) FROM files WHERE distancia_km IS NULL AND obs_count > no_gps_count"
+    ).fetchone()[0]
+    if faltando:
+        from . import queries as _queries
+        _queries.recalcular_percursos(conn)
     # classificação em categorias de objeto (roteador, veículo, smart tag…)
     colunas_redes = {linha["name"] for linha in conn.execute("PRAGMA table_info(networks)")}
     for coluna, tipo in (("vendor", "TEXT"), ("categoria", "TEXT"),

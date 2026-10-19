@@ -49,6 +49,7 @@ def dashboard():
         "qualidade": queries.quality_report(conn),
         "objetos": categorias.resumo_categorias(conn),
         "nomes_categoria": categorias.CATEGORIAS,
+        "progresso": queries.progresso_geral(conn),
         "cores_categoria": categorias.CORES,
         "icones_categoria": categorias.ICONES,
         "jobs": runner.list(6),

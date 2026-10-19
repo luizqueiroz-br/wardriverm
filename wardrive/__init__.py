@@ -32,6 +32,26 @@ def create_app(settings_overrides: dict | None = None) -> Flask:
     if settings_overrides:
         config.save_settings(settings_overrides)
 
+    # ---------------------------------------------------------------- filtros
+    @app.template_filter("duracao")
+    def _duracao(segundos):
+        """1234 → '20 min'; 3720 → '1 h 02'; None → '—'."""
+        if segundos is None:
+            return "—"
+        segundos = int(segundos)
+        if segundos < 60:
+            return f"{segundos} s"
+        if segundos < 3600:
+            return f"{segundos // 60} min"
+        return f"{segundos // 3600} h {segundos % 3600 // 60:02d}"
+
+    @app.template_filter("km")
+    def _km(valor):
+        """Sem valor vira '—' (sessão sem GPS não pode aparecer como 0 km)."""
+        if valor is None:
+            return "—"
+        return f"{valor:.1f}".replace(".", ",")
+
     from .views import ui
     from .api import api
 

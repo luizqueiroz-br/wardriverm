@@ -16,9 +16,15 @@
     <div class="sub">{{ resumo.redes_wifi }} Wi-Fi · {{ resumo.redes_ble }} BLE/BT{% if resumo.redes_celular %} · {{ resumo.redes_celular }} celular{% endif %}</div>
   </div>
   <div class="cartao compacto kpi-azul">
-    <div class="titulo-kpi">Wi-Fi / BLE</div>
-    <div class="valor">{{ resumo.wifi }} / {{ resumo.ble }}</div>
-    <div class="sub">observações por tipo{% if resumo.celular %} · {{ resumo.celular }} celular{% endif %}</div>
+    <div class="titulo-kpi">Rodado</div>
+    <div class="valor">{{ progresso.km | km }} <span style="font-size:14px">km</span></div>
+    <div class="sub">
+      {% if progresso.velocidade_kmh %}
+        {{ progresso.horas | km }} h de coleta · {{ progresso.velocidade_kmh | km }} km/h médio
+      {% else %}
+        nenhuma sessão com GPS ainda
+      {% endif %}
+    </div>
   </div>
   <div class="cartao compacto {{ 'kpi-alerta' if resumo.sem_gps else '' }}">
     <div class="titulo-kpi">Sem GPS</div>
