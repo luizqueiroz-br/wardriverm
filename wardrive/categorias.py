@@ -30,6 +30,7 @@ CATEGORIAS: dict[str, str] = {
     "celular": "celular / tablet",
     "computador": "computador",
     "veiculo": "veículo",
+    "drone": "drone",
     "smart_tag": "smart tag / rastreador",
     "vestivel": "vestível",
     "casa": "casa conectada",
@@ -52,6 +53,7 @@ CORES: dict[str, str] = {
     "celular": "#7aa2ff",
     "computador": "#61d4d0",
     "veiculo": "#ffb454",
+    "drone": "#ff5fa2",
     "smart_tag": "#ff8fb1",
     "vestivel": "#c58bff",
     "casa": "#9fd356",
@@ -118,7 +120,12 @@ REGRAS_VENDOR: list[tuple[str, str]] = [
     (r"stellantis|fiat|peugeot|citroen|renault|dacia|byd auto|great wall|chery|geely", "veiculo"),
     (r"continental automotive|bosch|denso|valeo|aptiv|magna|harman automotive|lear corp",
      "veiculo"),
-    # --- rastreadores e vestíveis ---------------------------------------------
+    # --- drones -----------------------------------------------------------------
+    # vem antes de "veiculo"/"camera" porque o nome do drone é a pista mais forte
+    # (Tello-XXXXXX, DJI-..., MavicMini-...); "spark"/"phantom" só com sufixo,
+    # senão qualquer rede chamada "Spark" viraria drone
+    (r"^sz dji|dji technology|ryze tech|autel robotics|parrot sa|parrot drones|skydio|"
+     r"hubsan|yuneec|walkera|eachine|holy stone|zero zero robotics", "drone"),
     (r"tile, inc|tile inc|chipolo|pebblebee|life360", "smart_tag"),
     (r"garmin|fitbit|withings|polar electro|suunto|whoop|oura health", "vestivel"),
     (r"huami|amazfit|zepp", "vestivel"),
@@ -172,6 +179,9 @@ REGRAS_SSID: list[tuple[str, str]] = [
      "smart_tag"),
     (rf"{_marca('garmin', 'fenix', 'forerunner', 'fitbit', 'amazfit', 'whoop')}|\bmi band\b",
      "vestivel"),
+    # drones (nome do próprio drone costuma ser a única pista)
+    (rf"{_marca('tello', 'mavic', 'anafi', 'skydio', 'hubsan', 'yuneec', 'bebop', 'autel')}"
+     r"|\bdji[-_ ]|\bphantom \d|\bspark[-_][0-9a-z]{4}", "drone"),
     # carros (o SSID costuma ser o nome do sistema embarcado)
     (rf"{_marca('tesla', 'toyota', 'honda', 'bmw', 'audi', 'volkswagen', 'chevrolet')}"
      r"|\bmodel [3syx]\b|^vw_|onstar\d|carplay|android ?auto|\bford ?sync\b|\bsync ?gen", "veiculo"),

@@ -48,6 +48,19 @@ class RegrasTests(unittest.TestCase):
         self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "", "Apple, Inc."),
                          ("celular", "media", "oui"))
 
+    def test_drone_pelo_nome_e_pelo_fabricante(self):
+        # o próprio drone/controle anuncia o nome; a OUI da DJI cobre o resto
+        self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "TELLO-8C4D2A", "")[0], "drone")
+        self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "DJI-MavicMini-2A3F", "")[0], "drone")
+        self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "",
+                                               "SZ DJI TECHNOLOGY CO.,LTD")[0], "drone")
+        self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "", "Parrot SA")[0], "drone")
+
+    def test_palavra_comum_nao_vira_drone(self):
+        # "Spark"/"Mavic" sem sufixo de série não são pista suficiente
+        self.assertNotEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "Spark Net", "")[0], "drone")
+        self.assertNotEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "Casa do Phantom", "")[0], "drone")
+
     def test_mac_aleatorio_sem_outra_pista(self):
         # 0x46 tem o bit localmente administrado ligado (BLE embaralhado)
         self.assertEqual(categorias.classificar("BLE", "46:1A:2B:3C:4D:5E", "", "")[0], "aleatorio")

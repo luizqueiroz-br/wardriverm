@@ -62,8 +62,8 @@ Pela linha de comando:
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
 * **Classificação por tipo de objeto**: roteador/AP, celular, computador, veículo,
-  smart tag, vestível, casa conectada, áudio, impressora, câmera, TV, videogame e
-  placa de desenvolvimento (ESP32). Sai do **fabricante** (prefixo do MAC na base
+  drone, smart tag, vestível, casa conectada, áudio, impressora, câmera, TV, videogame
+  e placa de desenvolvimento (ESP32). Sai do **fabricante** (prefixo do MAC na base
   oficial OUI do IEEE) e do **nome da rede** — "VIVOFIBRA-1A2B" é roteador, "VW_MIB_6343"
   é carro, "SmartTag" é rastreador. Cada rede mostra o fabricante e a confiança da
   classificação (alta quando o nome confirma, média quando o fabricante faz de tudo,
