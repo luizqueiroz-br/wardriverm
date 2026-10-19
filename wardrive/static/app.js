@@ -157,7 +157,12 @@
       color: "#1e5f9e", weight: 3, opacity: 0, dashArray: "7 5", interactive: false,
     }).addTo(mapa);
 
-    const grupo = L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 45 }) : L.layerGroup();
+    const grupo = L.markerClusterGroup ? L.markerClusterGroup({
+      maxClusterRadius: 45,
+      // no zoom máximo nada é agrupado: o usuário quer ver ponto por ponto.
+      // Lido do mapa para não desencontrar se o maxZoom mudar.
+      disableClusteringAtZoom: mapa.getMaxZoom(),
+    }) : L.layerGroup();
     mapa.addLayer(grupo);
     // ícones ficam num grupo SEM agrupamento: com poucos pontos (limite de 1.500)
     // o agrupamento esconderia justamente o que o ícone serve para mostrar
