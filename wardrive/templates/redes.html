@@ -3,6 +3,14 @@
 
 {% block conteudo %}
 <h1>Redes descobertas <span class="texto-fraco">({{ page.total }})</span></h1>
+<div class="linha-botoes" style="margin-bottom:10px; align-items:center">
+  <form method="post" action="{{ url_for('ui.redes_recategorizar') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="mini" title="refaz fabricante/categoria de todas as redes com a base OUI atual">
+      recategorizar objetos</button>
+  </form>
+  <span class="texto-fraco">a categoria sai do fabricante (OUI do IEEE) e do nome da rede; passe o mouse na etiqueta para ver o fabricante</span>
+</div>
 
 <form class="filtros" method="get" action="{{ url_for('ui.redes') }}">
   <div class="campo largo"><label for="q">SSID ou MAC</label>
@@ -28,6 +36,13 @@
       <option value="ssid" {{ 'selected' if args.ordem == 'ssid' }}>SSID (A-Z)</option>
       <option value="mac" {{ 'selected' if args.ordem == 'mac' }}>MAC</option>
     </select></div>
+  <div class="campo"><label for="categoria">objeto</label>
+    <select id="categoria" name="categoria">
+      <option value="">todos os objetos</option>
+      {% for c in categorias %}
+        <option value="{{ c.categoria }}" {{ 'selected' if args.categoria == c.categoria }}>{{ nomes_categoria.get(c.categoria, c.categoria) }} ({{ c.redes }})</option>
+      {% endfor %}
+    </select></div>
   <label class="check"><input type="checkbox" name="sem_ssid" value="1" {{ 'checked' if args.sem_ssid }}> somente SSID oculto</label>
   <div class="campo"><label>&nbsp;</label><button type="submit">Filtrar</button></div>
   <div class="campo"><label>&nbsp;</label><a class="botao" href="{{ url_for('ui.redes') }}">Limpar</a></div>
@@ -39,7 +54,7 @@
 <table>
   <thead>
     <tr>
-      <th>SSID</th><th>MAC</th><th>tipo</th><th>segurança</th>
+      <th>SSID</th><th>objeto</th><th>MAC</th><th>tipo</th><th>segurança</th>
       <th class="num">RSSI máx</th><th class="num">obs</th><th class="num">sessões</th>
       <th>primeira vez</th><th>última vez</th><th></th>
     </tr>
@@ -48,6 +63,11 @@
     {% for r in redes %}
     <tr>
       <td>{{ r.ssid or '<span class="texto-fraco">(oculto)</span>'|safe }}</td>
+      <td>
+        <span class="etiqueta objeto" style="--cor: {{ cores_categoria.get(r.categoria or 'desconhecido', '#55607a') }}"
+              title="{{ r.vendor or 'fabricante não identificado' }}{% if r.categoria_conf %} · confiança {{ r.categoria_conf }} ({{ r.categoria_origem }}){% endif %}">
+          {{ nomes_categoria.get(r.categoria or 'desconhecido', 'não identificado') }}</span>
+      </td>
       <td class="mono"><a href="{{ url_for('ui.rede_detalhe', mac=r.mac) }}">{{ r.mac }}</a></td>
       <td><span class="etiqueta {{ r.type }}">{{ r.type }}</span></td>
       <td class="mono texto-fraco">{{ r.auth_mode }}</td>
@@ -82,11 +102,11 @@
 
 <div class="paginacao">
   {% if page.pagina > 1 %}
-    <a href="{{ url_for('ui.redes', q=args.q, tipo=args.tipo, auth=args.auth, de=args.de, ate=args.ate, ordem=args.ordem, sem_ssid=args.sem_ssid, pagina=page.pagina-1) }}">← anterior</a>
+    <a href="{{ url_for('ui.redes', q=args.q, tipo=args.tipo, auth=args.auth, de=args.de, ate=args.ate, ordem=args.ordem, sem_ssid=args.sem_ssid, categoria=args.categoria, pagina=page.pagina-1) }}">← anterior</a>
   {% endif %}
   <span>página {{ page.pagina }} de {{ page.paginas }}</span>
   {% if page.pagina < page.paginas %}
-    <a href="{{ url_for('ui.redes', q=args.q, tipo=args.tipo, auth=args.auth, de=args.de, ate=args.ate, ordem=args.ordem, sem_ssid=args.sem_ssid, pagina=page.pagina+1) }}">próxima →</a>
+    <a href="{{ url_for('ui.redes', q=args.q, tipo=args.tipo, auth=args.auth, de=args.de, ate=args.ate, ordem=args.ordem, sem_ssid=args.sem_ssid, categoria=args.categoria, pagina=page.pagina+1) }}">próxima →</a>
   {% endif %}
 </div>
 {% else %}

@@ -102,10 +102,20 @@ CREATE TABLE IF NOT EXISTS networks (
     file_count INTEGER NOT NULL DEFAULT 0,
     best_lat   REAL,
     best_lon   REAL,
+    vendor          TEXT,
+    categoria       TEXT,
+    categoria_conf  TEXT,
+    categoria_origem TEXT,
     updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_net_ssid ON networks(ssid);
 CREATE INDEX IF NOT EXISTS idx_net_type ON networks(type);
+
+-- base oficial de fabricantes por prefixo de MAC (OUI do IEEE)
+CREATE TABLE IF NOT EXISTS oui (
+    prefix TEXT PRIMARY KEY,
+    vendor TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS exports (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,6 +222,14 @@ def migrar(conn: sqlite3.Connection) -> None:
     colunas_arquivos = {linha["name"] for linha in conn.execute("PRAGMA table_info(files)")}
     if "notes" not in colunas_arquivos:
         conn.execute("ALTER TABLE files ADD COLUMN notes TEXT")
+    # classificação em categorias de objeto (roteador, veículo, smart tag…)
+    colunas_redes = {linha["name"] for linha in conn.execute("PRAGMA table_info(networks)")}
+    for coluna, tipo in (("vendor", "TEXT"), ("categoria", "TEXT"),
+                         ("categoria_conf", "TEXT"), ("categoria_origem", "TEXT")):
+        if coluna not in colunas_redes:
+            conn.execute(f"ALTER TABLE networks ADD COLUMN {coluna} {tipo}")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_net_categoria ON networks(categoria)")
+    conn.commit()
 
 
 # --------------------------------------------------------------------------- #

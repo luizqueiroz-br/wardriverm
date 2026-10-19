@@ -22,6 +22,13 @@
       <option value="observacoes">cada observação</option>
       <option value="redes">uma por rede (melhor sinal)</option>
     </select></div>
+  <div class="campo"><label for="categoria">objeto</label>
+    <select id="categoria" name="categoria">
+      <option value="">todos</option>
+      {% for c in categorias %}
+        <option value="{{ c.categoria }}" {{ 'selected' if args.categoria == c.categoria }}>{{ nomes_categoria.get(c.categoria, c.categoria) }}</option>
+      {% endfor %}
+    </select></div>
   <div class="campo"><label for="sessao">sessões (Ctrl+clique)</label>
     <select id="sessao" name="sessao" multiple size="1" style="min-width:220px">
       {% for s in sessoes %}

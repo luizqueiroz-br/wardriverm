@@ -9,14 +9,16 @@ from pathlib import Path
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 
-from . import config, db, exporter, importer, queries, uploaders, upload_service
+from . import (categorias, config, db, exporter, importer, queries, uploaders,
+               upload_service)
 from .jobs import runner
 
 ui = Blueprint("ui", __name__)
 
 
 def _page_args(**overrides) -> dict:
-    args = {k: request.args.get(k, "") for k in ("q", "tipo", "auth", "de", "ate", "ordem", "pagina", "sem_ssid")}
+    args = {k: request.args.get(k, "") for k in ("q", "tipo", "auth", "de", "ate", "ordem",
+                                                 "pagina", "sem_ssid", "categoria")}
     args["pagina"] = request.args.get("pagina", type=int) or 1
     args.update(overrides)
     return args
@@ -45,6 +47,9 @@ def dashboard():
         "uploads": queries.recent_uploads(conn, 10),
         "eventos": queries.events(conn, 12),
         "qualidade": queries.quality_report(conn),
+        "objetos": categorias.resumo_categorias(conn),
+        "nomes_categoria": categorias.CATEGORIAS,
+        "cores_categoria": categorias.CORES,
         "jobs": runner.list(6),
     }
     return render_template("dashboard.html", **context)
@@ -132,19 +137,28 @@ def redes():
     conn = db.get_db()
     args = _page_args()
     per_page = 50
-    itens, total = queries.networks(
-        conn, search=args["q"], type_=args["tipo"], auth=args["auth"], date_from=args["de"],
-        date_to=args["ate"], only_no_ssid=bool(args["sem_ssid"]), sort=args["ordem"] or "obs",
-        limit=per_page, offset=(args["pagina"] - 1) * per_page,
-    )
+    filtros = dict(search=args["q"], type_=args["tipo"], auth=args["auth"], date_from=args["de"],
+                   date_to=args["ate"], only_no_ssid=bool(args["sem_ssid"]),
+                   sort=args["ordem"] or "obs", categoria=args["categoria"])
+    itens, total = queries.networks(conn, limit=per_page, offset=(args["pagina"] - 1) * per_page,
+                                    **filtros)
     page = _paginate(total, per_page, args["pagina"])
-    itens, _ = queries.networks(
-        conn, search=args["q"], type_=args["tipo"], auth=args["auth"], date_from=args["de"],
-        date_to=args["ate"], only_no_ssid=bool(args["sem_ssid"]), sort=args["ordem"] or "obs",
-        limit=per_page, offset=page["offset"],
-    )
+    itens, _ = queries.networks(conn, limit=per_page, offset=page["offset"], **filtros)
     return render_template("redes.html", redes=itens, page=page, args=args,
-                           meta=queries.filters_meta(conn))
+                           meta=queries.filters_meta(conn),
+                           categorias=categorias.resumo_categorias(conn),
+                           nomes_categoria=categorias.CATEGORIAS,
+                           cores_categoria=categorias.CORES)
+
+
+@ui.post("/redes/recategorizar")
+def redes_recategorizar():
+    """Refaz a classificação (útil depois de importar mais dados)."""
+    conn = db.get_db()
+    resultado = categorias.categorizar_redes(conn, forcar=True)
+    flash(f"Recategorizado: {resultado['redes']} rede(s) — "
+          f"{resultado['oui']} prefixos de fabricante na base.", "ok")
+    return redirect(url_for("ui.redes", **{k: v for k, v in request.args.items() if v}))
 
 
 @ui.get("/redes/<mac>")
@@ -163,7 +177,9 @@ def rede_detalhe(mac: str):
 def mapa():
     conn = db.get_db()
     sessoes_lista = queries.sessions(conn, limit=200)
-    return render_template("mapa.html", sessoes=sessoes_lista, args=_page_args())
+    return render_template("mapa.html", sessoes=sessoes_lista, args=_page_args(),
+                           categorias=categorias.resumo_categorias(conn),
+                           nomes_categoria=categorias.CATEGORIAS)
 
 
 # --------------------------------------------------------------------------- #

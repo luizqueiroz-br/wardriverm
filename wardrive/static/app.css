@@ -109,6 +109,17 @@ td.mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 .mini-barras .num { color: var(--fraco); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- formulários */
+/* o atributo `hidden` precisa vencer as classes que definem display */
+[hidden] { display: none !important; }
+
+/* etiqueta de categoria de objeto (cor via --cor) */
+.etiqueta.objeto {
+  background: color-mix(in srgb, var(--cor, #55607a) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor, #55607a) 55%, transparent);
+  color: var(--cor, #c9d1e0);
+  white-space: nowrap; font-size: 11.5px; padding: 1px 7px; border-radius: 999px;
+}
+
 /* faixa de seleção ativa no mapa (uma rede escolhida) */
 .faixa-rede {
   display: flex; justify-content: space-between; align-items: center; gap: 14px;

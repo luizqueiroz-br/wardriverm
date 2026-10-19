@@ -11,7 +11,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
-from . import config, db
+from . import categorias, config, db
 from .parser import parse_bytes
 
 IMPORT_EXTENSIONS = {".log", ".csv", ".txt", ".gz", ".nettxt", ".wiglecsv"}
@@ -181,6 +181,13 @@ def scan_and_import(conn, dirs: list[str], *, force: bool = False, job=None) -> 
             summary["detalhes"].append(result)
         if job is not None:
             job.tick(f"{path.name}: {status}")
+    if summary["novos"]:
+        # classifica as redes que acabaram de entrar (as já classificadas ficam
+        # intactas: categorizar_redes só mexe em categoria NULL por padrão)
+        try:
+            categorias.categorizar_redes(conn)
+        except Exception as exc:  # never let classification break an import
+            db.log_event(conn, "aviso", "import", f"categorização falhou: {exc}")
     return summary
 
 

@@ -166,12 +166,12 @@ NETWORK_SORTS = {
 
 def networks(conn, *, search: str = "", type_: str = "", auth: str = "", date_from: str = "",
              date_to: str = "", only_no_ssid: bool = False, sort: str = "obs",
-             limit: int = 100, offset: int = 0) -> tuple[list[dict], int]:
+             limit: int = 100, offset: int = 0, categoria: str = "") -> tuple[list[dict], int]:
     where, params = [], []
     if search:
         like = f"%{search}%"
-        where.append("(n.ssid LIKE ? OR n.mac LIKE ?)")
-        params += [like, like]
+        where.append("(n.ssid LIKE ? OR n.mac LIKE ? OR n.vendor LIKE ?)")
+        params += [like, like, like]
     if type_:
         types = [t for t in type_.split(",") if t]
         where.append(f"n.type IN ({','.join('?' * len(types))})")
@@ -179,6 +179,9 @@ def networks(conn, *, search: str = "", type_: str = "", auth: str = "", date_fr
     if auth:
         where.append("n.auth_mode LIKE ?")
         params.append(f"%{auth}%")
+    if categoria:
+        where.append("COALESCE(n.categoria,'desconhecido') = ?")
+        params.append(categoria)
     if date_from:
         where.append("n.last_seen >= ?")
         params.append(date_from)
@@ -220,7 +223,7 @@ def network_detail(conn, mac: str) -> dict | None:
 
 
 def _filtros_mapa(*, file_ids=None, types=None, date_from: str = "", date_to: str = "",
-                  mac: str = "") -> tuple[str, list]:
+                  mac: str = "", categoria: str = "") -> tuple[str, list]:
     """WHERE comum às consultas do mapa (pontos e resumo)."""
     where = ["o.has_gps = 1"]
     params: list = []
@@ -247,27 +250,39 @@ def _filtros_mapa(*, file_ids=None, types=None, date_from: str = "", date_to: st
         else:
             where.append("o.ssid LIKE ?")
             params.append(f"%{mac.strip()}%")
+    if categoria:
+        # a categoria vive em networks; a subconsulta evita duplicar linhas no join
+        where.append("o.mac IN (SELECT mac FROM networks WHERE categoria = ?)")
+        params.append(categoria)
     return " AND ".join(where), params
 
 
 def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",
-               limit: int | None = None, network_mode: bool = False, mac: str = "") -> list[dict]:
+               limit: int | None = None, network_mode: bool = False, mac: str = "",
+               categoria: str = "") -> list[dict]:
     where_sql, params = _filtros_mapa(file_ids=file_ids, types=types, date_from=date_from,
-                                      date_to=date_to, mac=mac)
+                                      date_to=date_to, mac=mac, categoria=categoria)
     limit = int(limit or config.load_settings()["map"]["max_points"])
     if network_mode:
-        filtro_mac = "AND n.mac = ?" if mac else ""
-        restantes = [mac.upper()] if mac else []
+        condicoes, argumentos = [], []
+        if types:
+            condicoes.append(f"n.type IN ({','.join('?' * len(types))})")
+            argumentos += list(types)
+        if mac:
+            condicoes.append("n.mac = ?")
+            argumentos.append(normalizar_mac_item(mac))
+        if categoria:
+            condicoes.append("n.categoria = ?")
+            argumentos.append(categoria)
+        extras = ("".join(" AND " + c for c in condicoes))
         rows = conn.execute(
             f"""SELECT n.mac, n.ssid, n.type, n.best_rssi AS rssi, n.best_lat AS lat,
                        n.best_lon AS lon, n.obs_count, n.first_seen, n.last_seen,
-                       '' AS auth_mode
+                       n.categoria, '' AS auth_mode
                   FROM networks n
-                 WHERE n.best_lat IS NOT NULL AND n.best_lon IS NOT NULL
-                   {'AND n.type IN (' + ','.join('?' * len(types)) + ')' if types else ''}
-                   {filtro_mac}
+                 WHERE n.best_lat IS NOT NULL AND n.best_lon IS NOT NULL{extras}
                  ORDER BY n.obs_count DESC LIMIT ?""",
-            tuple(types or []) + tuple(restantes) + (limit,),
+            tuple(argumentos) + (limit,),
         ).fetchall()
     else:
         rows = conn.execute(
@@ -280,11 +295,16 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
     return [dict(r) for r in rows]
 
 
+def normalizar_mac_item(valor: str) -> str:
+    """MAC colado de qualquer forma vira o formato do banco (AA:BB:CC:DD:EE:FF)."""
+    return (valor or "").strip().replace("-", ":").upper()
+
+
 def map_resumo(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",
-               mac: str = "", sessoes_limite: int = 8) -> dict:
+               mac: str = "", sessoes_limite: int = 8, categoria: str = "") -> dict:
     """Estatísticas da seleção atual do mapa (usadas quando um item está filtrado)."""
     where_sql, params = _filtros_mapa(file_ids=file_ids, types=types, date_from=date_from,
-                                      date_to=date_to, mac=mac)
+                                      date_to=date_to, mac=mac, categoria=categoria)
     linha = conn.execute(
         f"""SELECT COUNT(*) AS pontos,
                    COUNT(DISTINCT o.file_id) AS sessoes,

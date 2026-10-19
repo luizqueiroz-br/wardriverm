@@ -19,7 +19,8 @@ import sys
 import time
 from pathlib import Path
 
-from wardrive import config, db, exporter, importer, queries, upload_service, uploaders
+from wardrive import (categorias, config, db, exporter, importer, queries, upload_service,
+                      uploaders)
 
 TARGETS = tuple(config.TARGETS)
 
@@ -89,6 +90,20 @@ def cmd_status(args) -> int:
         print("Uploads:")
         for u in uploads:
             print(f"  {u['target']:<8} {u['status']:<10} {u['n']:>4}  último {u['ultimo']}")
+    return 0
+
+
+def cmd_categorizar(args) -> int:
+    with db.session() as conn:
+        if args.baixar:
+            print("Baixando a base OUI do IEEE…")
+        resultado = categorias.categorizar_redes(conn, forcar=args.forcar, baixar=args.baixar)
+    print(f"\n{resultado['redes']} rede(s) classificada(s) · {resultado['oui']} prefixos na base\n")
+    total = sum(resultado["por_categoria"].values()) or 1
+    for categoria, quantidade in sorted(resultado["por_categoria"].items(),
+                                        key=lambda par: -par[1]):
+        barra = "#" * max(1, round(28 * quantidade / total))
+        print(f"  {categorias.nome_categoria(categoria):30} {quantidade:6}  {barra}")
     return 0
 
 
@@ -268,6 +283,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--forcar", action="store_true", help="reimporta mesmo que já exista")
     p.add_argument("--watch", type=int, default=0, help="repetir a varredura a cada N segundos")
     p.set_defaults(func=cmd_importar)
+
+    p = sub.add_parser("categorizar", help="classifica as redes em tipos de objeto (roteador, veículo, tag…)")
+    p.add_argument("--forcar", action="store_true", help="reclassifica todas (não só as sem categoria)")
+    p.add_argument("--baixar", action="store_true", help="baixa a base OUI do IEEE antes de classificar")
+    p.set_defaults(func=cmd_categorizar)
 
     def _add_selection(p):
         p.add_argument("--destino", choices=TARGETS, required=True)

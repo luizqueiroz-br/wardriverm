@@ -38,6 +38,7 @@ def mapa_pontos():
     file_ids = [i for i in request.args.getlist("sessao") if i.isdigit()]
     modo = request.args.get("modo", "observacoes")
     mac = (request.args.get("mac") or "").strip()
+    categoria = (request.args.get("categoria") or "").strip()
     data_from = request.args.get("de", "")
     data_to = request.args.get("ate", "")
     limite_arg = request.args.get("limite", type=int)
@@ -50,16 +51,18 @@ def mapa_pontos():
         limit=limite_arg,
         network_mode=(modo == "redes"),
         mac=mac,
+        categoria=categoria,
     )
     limite = int(limite_arg or config.load_settings()["map"]["max_points"])
     resumo = queries.map_resumo(conn, file_ids=file_ids, types=tipos, date_from=data_from,
-                                date_to=data_to, mac=mac)
+                                date_to=data_to, mac=mac, categoria=categoria)
     return jsonify({
         "pontos": pontos,
         "truncado": len(pontos) >= limite,
         "total": len(pontos),
         "limite": limite,
         "mac": mac,
+        "categoria": categoria,
         "resumo": resumo,
     })
 

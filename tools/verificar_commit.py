@@ -40,6 +40,17 @@ PADROES_CONTEUDO = [
     (re.compile(rb"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}"), "endereço MAC"),
     (re.compile(rb"-2[0-9]\.\d{4,},\s*-?[0-9]{2}\.\d{4,}"), "par de coordenadas"),
 ]
+# MACs de exemplo que aparecem em documentação/código: não identificam ninguém,
+# então não devem barrar o commit (senão toda docstring de formato vira bloqueio)
+MAC_PLACEHOLDER = re.compile(
+    rb"(?i)^(?:AA:BB:CC:DD:EE:FF|00:11:22:33:44:55|DE:AD:BE:EF:00:01|FF:FF:FF:FF:FF:FF)$"
+)
+
+
+def _sem_placeholder(achado: bytes) -> bool:
+    return bool(MAC_PLACEHOLDER.match(achado))
+
+
 # arquivos onde esses padrões são intencionais (dados sintéticos de teste ou documentação)
 ISENTOS = re.compile(r"^(tests/|tools/servidor_mentira\.py$|wardrive/parser\.py$|docs/|README\.md$)")
 
@@ -82,7 +93,12 @@ def verificar() -> list[str]:
         if b"\x00" in dados[:2000]:      # binário
             continue
         for padrao, motivo in PADROES_CONTEUDO:
-            achado = padrao.search(dados)
+            achado = None
+            for candidato in padrao.finditer(dados):
+                if motivo == "endereço MAC" and _sem_placeholder(candidato.group(0)):
+                    continue          # exemplo de documentação, não é dado de ninguém
+                achado = candidato
+                break
             if achado:
                 problemas.append(f"{caminho}: parece conter {motivo} real "
                                  f"(trecho: {achado.group(0)[:40].decode('utf-8', 'replace')})")

@@ -29,6 +29,7 @@ Pela linha de comando:
 .venv/Scripts/python.exe cli.py status                 # resumo do banco
 .venv/Scripts/python.exe cli.py importar               # varre as pastas configuradas
 .venv/Scripts/python.exe cli.py importar --watch 60    # varre a cada 60 s (deixe rodando)
+.venv/Scripts/python.exe cli.py categorizar --baixar   # classifica as redes por tipo de objeto
 .venv/Scripts/python.exe cli.py exportar --destino wigle --modo novo
 .venv/Scripts/python.exe cli.py enviar --destino wdgwars --modo novo --simular
 .venv/Scripts/python.exe cli.py enviar --destino wigle --export 3 --real
@@ -60,6 +61,14 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Classificação por tipo de objeto**: roteador/AP, celular, computador, veículo,
+  smart tag, vestível, casa conectada, áudio, impressora, câmera, TV, videogame e
+  placa de desenvolvimento (ESP32). Sai do **fabricante** (prefixo do MAC na base
+  oficial OUI do IEEE) e do **nome da rede** — "VIVOFIBRA-1A2B" é roteador, "VW_MIB_6343"
+  é carro, "SmartTag" é rastreador. Cada rede mostra o fabricante e a confiança da
+  classificação (alta quando o nome confirma, média quando o fabricante faz de tudo,
+  como Apple e Samsung); o que não dá para afirmar fica como "não identificado" em
+  vez de chutar. Filtra na lista de Redes e no mapa, com quebra por categoria no painel.
 * Mapa (Leaflet + OpenStreetMap) com pontos por observação ou uma bolinha por rede,
   coloridos por tipo e dimensionados pelo RSSI — mais uma **camada de calor** opcional
   (densidade das coletas, com peso por contagem ou pelo RSSI) que se reescala com o zoom.

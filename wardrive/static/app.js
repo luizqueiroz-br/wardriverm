@@ -335,7 +335,11 @@
       mostrarResumo(dados);
       const info = document.getElementById("mapa-info");
       if (info) {
-        info.textContent = `${dados.total} ponto(s) exibido(s)` + (dados.truncado
+        const filtros = [];
+        if (dados.categoria) filtros.push(document.getElementById("categoria")?.selectedOptions[0]?.textContent || dados.categoria);
+        if (dados.mac) filtros.push(dados.pontos[0]?.ssid || dados.mac);
+        info.textContent = (filtros.length ? filtros.join(" · ") + " — " : "") +
+          `${dados.total} ponto(s) exibido(s)` + (dados.truncado
           ? ` — limitado a ${dados.limite}; refine os filtros para ver o resto`
           : "");
       }
