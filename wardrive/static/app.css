@@ -109,6 +109,18 @@ td.mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 .mini-barras .num { color: var(--fraco); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- formulários */
+/* marcador do mapa com o ícone do tipo de objeto */
+.marcador-objeto { background: none; border: 0; }
+.marcador-objeto span {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(10, 16, 24, 0.86); border: 1.8px solid var(--cor, #55607a);
+  font-size: 14px; line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  /* emoji sem o "texto colorido" do Windows, para manter o tamanho estável */
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+.marcador-objeto:hover span { transform: scale(1.12); transition: transform .12s ease; }
+
 /* o atributo `hidden` precisa vencer as classes que definem display */
 [hidden] { display: none !important; }
 

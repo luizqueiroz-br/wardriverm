@@ -287,7 +287,8 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
     else:
         rows = conn.execute(
             f"""SELECT o.mac, o.ssid, o.type, o.rssi, o.lat, o.lon, 1 AS obs_count,
-                       o.first_seen, o.first_seen AS last_seen, o.auth_mode, o.file_id
+                       o.first_seen, o.first_seen AS last_seen, o.auth_mode, o.file_id,
+                       (SELECT n.categoria FROM networks n WHERE n.mac = o.mac) AS categoria
                   FROM observations o WHERE {where_sql}
                  ORDER BY o.first_seen DESC LIMIT ?""",
             tuple(params) + (limit,),

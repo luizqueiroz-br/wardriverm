@@ -26,7 +26,7 @@
     <select id="categoria" name="categoria">
       <option value="">todos</option>
       {% for c in categorias %}
-        <option value="{{ c.categoria }}" {{ 'selected' if args.categoria == c.categoria }}>{{ nomes_categoria.get(c.categoria, c.categoria) }}</option>
+        <option value="{{ c.categoria }}" {{ 'selected' if args.categoria == c.categoria }}>{{ icones.get(c.categoria, '•') }} {{ nomes_categoria.get(c.categoria, c.categoria) }}</option>
       {% endfor %}
     </select></div>
   <div class="campo"><label for="sessao">sessões (Ctrl+clique)</label>
@@ -44,6 +44,8 @@
   <label class="check"><input type="checkbox" name="tipo" value="BT"> BT</label>
   <label class="check" title="camada de densidade sobre os marcadores">
     <input type="checkbox" id="calor" name="calor" value="1" {{ 'checked' if request.args.get('calor', '1') != '0' }}> mapa de calor</label>
+  <label class="check" title="ícone do objeto em vez de bolinha (só até 1.500 pontos, acima disso a bolinha é mais rápida)">
+    <input type="checkbox" id="icones" name="icones" value="1" {{ 'checked' if request.args.get('icones', '1') != '0' }}> ícones por objeto</label>
   <div class="campo"><label>&nbsp;</label><button type="submit" class="principal">Aplicar</button></div>
 </form>
 
@@ -104,6 +106,8 @@
 
 {% block scripts %}
 <script>
+  // nome/cor/ícone de cada objeto (vem do servidor para não duplicar a lista aqui)
+  window.WARDRIVE_OBJETOS = {{ mapa_objetos|tojson }};
   // o base.html já carrega static/app.js depois deste bloco; o mapa usa o Leaflet
   // carregado no <head>, então nada a fazer aqui além de manter a ordem.
 </script>

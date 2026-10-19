@@ -40,7 +40,7 @@
     <select id="categoria" name="categoria">
       <option value="">todos os objetos</option>
       {% for c in categorias %}
-        <option value="{{ c.categoria }}" {{ 'selected' if args.categoria == c.categoria }}>{{ nomes_categoria.get(c.categoria, c.categoria) }} ({{ c.redes }})</option>
+        <option value="{{ c.categoria }}" {{ 'selected' if args.categoria == c.categoria }}>{{ icones_categoria.get(c.categoria, '•') }} {{ nomes_categoria.get(c.categoria, c.categoria) }} ({{ c.redes }})</option>
       {% endfor %}
     </select></div>
   <label class="check"><input type="checkbox" name="sem_ssid" value="1" {{ 'checked' if args.sem_ssid }}> somente SSID oculto</label>
@@ -66,7 +66,7 @@
       <td>
         <span class="etiqueta objeto" style="--cor: {{ cores_categoria.get(r.categoria or 'desconhecido', '#55607a') }}"
               title="{{ r.vendor or 'fabricante não identificado' }}{% if r.categoria_conf %} · confiança {{ r.categoria_conf }} ({{ r.categoria_origem }}){% endif %}">
-          {{ nomes_categoria.get(r.categoria or 'desconhecido', 'não identificado') }}</span>
+          {{ icones_categoria.get(r.categoria or 'desconhecido', '❓') }} {{ nomes_categoria.get(r.categoria or 'desconhecido', 'não identificado') }}</span>
       </td>
       <td class="mono"><a href="{{ url_for('ui.rede_detalhe', mac=r.mac) }}">{{ r.mac }}</a></td>
       <td><span class="etiqueta {{ r.type }}">{{ r.type }}</span></td>

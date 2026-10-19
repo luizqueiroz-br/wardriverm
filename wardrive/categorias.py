@@ -87,6 +87,36 @@ CORES: dict[str, str] = {
     "desconhecido": "#55607a",
 }
 
+#: emoji de cada categoria (usado nas etiquetas e nos marcadores do mapa)
+ICONES: dict[str, str] = {
+    "roteador": "📶",
+    "celular": "📱",
+    "computador": "💻",
+    "veiculo": "🚗",
+    "micromobilidade": "🛴",
+    "drone": "🚁",
+    "rastreador": "📍",
+    "smart_tag": "🏷️",
+    "vestivel": "⌚",
+    "beacon": "📡",
+    "casa": "🏠",
+    "medidor": "⚡",
+    "robo": "🤖",
+    "audio": "🔊",
+    "impressora": "🖨️",
+    "impressora3d": "🧵",
+    "pagamento": "💳",
+    "camera": "📷",
+    "tv": "📺",
+    "console": "🎮",
+    "vr": "🥽",
+    "telefone": "☎️",
+    "satelite": "🛰️",
+    "devkit": "🧩",
+    "aleatorio": "🎲",
+    "desconhecido": "❓",
+}
+
 # --------------------------------------------------------------------------- #
 # Regras por fabricante (Organization Name do IEEE, em minúsculas)
 # --------------------------------------------------------------------------- #

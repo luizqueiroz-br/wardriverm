@@ -118,14 +118,18 @@
   let wardriveMapa = null;
   if (alvoMapa && window.L) {
     const centro = [-15.79, -47.88];
-    const mapa = L.map("mapa", { preferCanvas: true }).setView(centro, 11);
+    const mapa = L.map("mapa", { preferCanvas: true, minZoom: 3, maxZoom: 19 })
+      .setView(centro, 11);
     wardriveMapa = mapa;
     window.wardriveMapa = mapa;   // exposto para depuração e para o ajuste de tamanho abaixo
     // o contêiner pode ser medido antes do CSS/Layout terminar: sem isso o
     // fitBounds calcula o zoom com um tamanho errado e o mapa fica afastado demais
     mapa.whenReady(() => setTimeout(() => mapa.invalidateSize(), 250));
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      // sem o teto no MAPA, clicar num agrupamento ia a z=21 e o Leaflet esticava
+      // os tiles de 19 — o mapa ficava borrado
       maxZoom: 19,
+      maxNativeZoom: 19,
       attribution: '© OpenStreetMap',
     }).addTo(mapa);
 
@@ -135,6 +139,7 @@
     // ficar embaixo deles; ligar/desligar só alterna a visibilidade do canvas
     const controleCalor = document.getElementById("calor");
     const controlePeso = document.getElementById("calor-peso");
+    const controleIcones = document.getElementById("icones");
     const camadaCalor = (window.L && L.heatLayer)
       ? L.heatLayer([], {
           radius: 22,
@@ -154,6 +159,9 @@
 
     const grupo = L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 45 }) : L.layerGroup();
     mapa.addLayer(grupo);
+    // ícones ficam num grupo SEM agrupamento: com poucos pontos (limite de 1.500)
+    // o agrupamento esconderia justamente o que o ícone serve para mostrar
+    const grupoIcones = L.layerGroup().addTo(mapa);
     let ultimosPontos = [];
 
     function elementoCalor() {
@@ -210,6 +218,28 @@
 
     function cor(tipo) {
       return cores[tipo] || "#ffb454";
+    }
+
+    function objeto(categoria) {
+      const tabela = window.WARDRIVE_OBJETOS || {};
+      return tabela[categoria] || tabela.desconhecido ||
+        { nome: categoria || "não identificado", cor: "#55607a", icone: "❓" };
+    }
+
+    // Acima desse número o divIcon (um elemento DOM por ponto) engasga o
+    // navegador: aí volta para o círculo desenhado no canvas, que aguenta 20 mil
+    const LIMITE_ICONES = 1500;
+
+    function marcadorComIcone(ponto) {
+      const info = objeto(ponto.categoria);
+      const elemento = L.divIcon({
+        className: "marcador-objeto",
+        html: `<span style="--cor:${escapar(info.cor)}">${escapar(info.icone)}</span>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -13],
+      });
+      return L.marker([ponto.lat, ponto.lon], { icon: elemento, riseOnHover: true });
     }
 
     function escapar(valor) {
@@ -292,30 +322,40 @@
       const form = document.getElementById("form-mapa");
       const params = new URLSearchParams(new FormData(form));
       grupo.clearLayers();
+      grupoIcones.clearLayers();
       const dados = await api("/api/mapa/pontos?" + params.toString());
       ultimosPontos = dados.pontos || [];
       desenharCalor();
       const resumo = dados.resumo || {};
       const filtrado = !!dados.mac && (resumo.redes || 0) === 1;
       desenharTrajeto(filtrado ? dados.pontos || [] : []);
+      const querIcones = !controleIcones || controleIcones.checked;
+      const comIcones = querIcones && (dados.pontos || []).length <= LIMITE_ICONES;
       const limites = [];
       (dados.pontos || []).forEach((p) => {
         if (p.lat == null || p.lon == null) return;
-        const marcador = L.circleMarker([p.lat, p.lon], {
-          radius: raio(p.rssi),
-          color: cor(p.type),
-          weight: 1,
-          fillColor: cor(p.type),
-          fillOpacity: 0.55,
-        });
+        let marcador;
+        if (comIcones) {
+          marcador = marcadorComIcone(p);
+        } else {
+          marcador = L.circleMarker([p.lat, p.lon], {
+            radius: raio(p.rssi),
+            color: cor(p.type),
+            weight: 1,
+            fillColor: cor(p.type),
+            fillOpacity: 0.55,
+          });
+        }
         const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
+        const info = objeto(p.categoria);
         marcador.bindPopup(
           `<b>${escapar(ssid)}</b><br><span style="font-family:monospace">${escapar(p.mac)}</span><br>` +
+            `${escapar(info.icone)} ${escapar(info.nome)}<br>` +
             `tipo: ${escapar(p.type)} · RSSI: ${p.rssi ?? "?"} dBm<br>` +
             `canal: ${p.channel ?? "?"} · ${escapar(p.first_seen || "")}<br>` +
             `<span style="opacity:.7">${p.obs_count > 1 ? p.obs_count + " observações" : ""}</span>`
         );
-        grupo.addLayer(marcador);
+        (comIcones ? grupoIcones : grupo).addLayer(marcador);
         limites.push([p.lat, p.lon]);
       });
       if (limites.length) {
@@ -341,7 +381,8 @@
         info.textContent = (filtros.length ? filtros.join(" · ") + " — " : "") +
           `${dados.total} ponto(s) exibido(s)` + (dados.truncado
           ? ` — limitado a ${dados.limite}; refine os filtros para ver o resto`
-          : "");
+          : "") + (querIcones && !comIcones
+          ? ` — ícones desligados acima de ${LIMITE_ICONES} pontos` : "");
       }
     }
 

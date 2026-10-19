@@ -50,6 +50,7 @@ def dashboard():
         "objetos": categorias.resumo_categorias(conn),
         "nomes_categoria": categorias.CATEGORIAS,
         "cores_categoria": categorias.CORES,
+        "icones_categoria": categorias.ICONES,
         "jobs": runner.list(6),
     }
     return render_template("dashboard.html", **context)
@@ -148,7 +149,8 @@ def redes():
                            meta=queries.filters_meta(conn),
                            categorias=categorias.resumo_categorias(conn),
                            nomes_categoria=categorias.CATEGORIAS,
-                           cores_categoria=categorias.CORES)
+                           cores_categoria=categorias.CORES,
+                           icones_categoria=categorias.ICONES)
 
 
 @ui.post("/redes/recategorizar")
@@ -173,13 +175,25 @@ def rede_detalhe(mac: str):
 # --------------------------------------------------------------------------- #
 # mapa
 # --------------------------------------------------------------------------- #
+def _objetos_para_mapa() -> dict:
+    """Nome, cor e ícone de cada categoria — o JS do mapa não repete essa lista."""
+    return {
+        cid: {"nome": nome,
+              "cor": categorias.CORES.get(cid, "#55607a"),
+              "icone": categorias.ICONES.get(cid, "❓")}
+        for cid, nome in categorias.CATEGORIAS.items()
+    }
+
+
 @ui.get("/mapa")
 def mapa():
     conn = db.get_db()
     sessoes_lista = queries.sessions(conn, limit=200)
     return render_template("mapa.html", sessoes=sessoes_lista, args=_page_args(),
                            categorias=categorias.resumo_categorias(conn),
-                           nomes_categoria=categorias.CATEGORIAS)
+                           nomes_categoria=categorias.CATEGORIAS,
+                           icones=categorias.ICONES,
+                           mapa_objetos=_objetos_para_mapa())
 
 
 # --------------------------------------------------------------------------- #

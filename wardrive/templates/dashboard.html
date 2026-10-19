@@ -86,7 +86,7 @@
         {% for item in objetos %}
           <div class="linha">
             <a class="rotulo" title="ver só {{ nomes_categoria.get(item.categoria, item.categoria) }} ({{ item.redes }} redes, {{ item.obs }} observações)"
-               href="{{ url_for('ui.redes', categoria=item.categoria) }}">{{ nomes_categoria.get(item.categoria, item.categoria) }}</a>
+               href="{{ url_for('ui.redes', categoria=item.categoria) }}">{{ icones_categoria.get(item.categoria, '•') }} {{ nomes_categoria.get(item.categoria, item.categoria) }}</a>
             {# raiz quadrada: com 6 mil roteadores e 2 videogames, a barra linear
                deixaria as categorias pequenas invisíveis #}
             <span class="trilha"><span style="width: {{ (100 * (item.redes / maximo) ** 0.5) | round(1) }}%; background: {{ cores_categoria.get(item.categoria, '#55607a') }}"></span></span>

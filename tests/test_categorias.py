@@ -107,6 +107,11 @@ class RegrasTests(unittest.TestCase):
                                                         "MCS Logic Inc.")
         self.assertEqual(confianca, "media")
 
+    def test_toda_categoria_tem_icone_e_cor(self):
+        # o mapa monta o marcador a partir desses dicionários: faltar um deixa "❓"
+        self.assertEqual(set(categorias.ICONES), set(categorias.CATEGORIAS))
+        self.assertEqual(set(categorias.CORES), set(categorias.CATEGORIAS))
+
     def test_mac_aleatorio_sem_outra_pista(self):
         # 0x46 tem o bit localmente administrado ligado (BLE embaralhado)
         self.assertEqual(categorias.classificar("BLE", "46:1A:2B:3C:4D:5E", "", "")[0], "aleatorio")
