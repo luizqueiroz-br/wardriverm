@@ -44,7 +44,7 @@
   <label class="check"><input type="checkbox" name="tipo" value="BT"> BT</label>
   <label class="check" title="camada de densidade sobre os marcadores">
     <input type="checkbox" id="calor" name="calor" value="1" {{ 'checked' if request.args.get('calor', '1') != '0' }}> mapa de calor</label>
-  <label class="check" title="ícone do objeto em vez de bolinha (só até 1.500 pontos, acima disso a bolinha é mais rápida)">
+  <label class="check" title="a partir do zoom 17 cada ponto vira o ícone do objeto (só o que está na tela; no zoom de fora fica a bolinha agrupada)">
     <input type="checkbox" id="icones" name="icones" value="1" {{ 'checked' if request.args.get('icones', '1') != '0' }}> ícones por objeto</label>
   <div class="campo"><label>&nbsp;</label><button type="submit" class="principal">Aplicar</button></div>
 </form>

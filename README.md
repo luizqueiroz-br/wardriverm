@@ -73,10 +73,10 @@ Pela linha de comando:
   como Apple e Samsung); o que não dá para afirmar fica como "não identificado" em
   vez de chutar. Filtra na lista de Redes e no mapa, com quebra por categoria no painel.
 * Mapa (Leaflet + OpenStreetMap) com pontos por observação ou uma bolinha por rede,
-  coloridos por tipo e dimensionados pelo RSSI — com **ícone do objeto** (📶 roteador,
-  🚗 veículo, 📱 celular, 🏷️ smart tag…) no lugar da bolinha, sem agrupamento, até
-  1.500 pontos; acima disso volta para a bolinha no canvas, que aguenta 20 mil.
-  No zoom máximo (19) o agrupamento é desligado: os pontos aparecem um por um. — mais uma **camada de calor** opcional
+  coloridos por tipo e dimensionados pelo RSSI. A partir do **zoom 17** cada ponto
+  vira o **ícone do objeto** (📶 roteador, 🚗 veículo, 📱 celular, 🏷️ smart tag…), sem
+  agrupamento — ali só os pontos da tela são desenhados, então vale mesmo com 20 mil
+  no filtro. De longe fica a bolinha agrupada. No zoom máximo (19) nada é agrupado. — mais uma **camada de calor** opcional
   (densidade das coletas, com peso por contagem ou pelo RSSI) que se reescala com o zoom.
   As duas camadas convivem: os marcadores/agrupamentos ficam por cima do calor.
 

@@ -164,9 +164,9 @@
       disableClusteringAtZoom: mapa.getMaxZoom(),
     }) : L.layerGroup();
     mapa.addLayer(grupo);
-    // ícones ficam num grupo SEM agrupamento: com poucos pontos (limite de 1.500)
-    // o agrupamento esconderia justamente o que o ícone serve para mostrar
-    const grupoIcones = L.layerGroup().addTo(mapa);
+    // modo ícone usa camada própria, SEM agrupamento: o ícone existe para ser
+    // visto, e ali só entram os pontos da tela (bounded), então não pesa
+    const camadaIcones = L.layerGroup().addTo(mapa);
     let ultimosPontos = [];
 
     function elementoCalor() {
@@ -216,10 +216,13 @@
       if (elemento) elemento.style.display = ligado ? "" : "none";
     }
 
+    if (controleIcones) controleIcones.addEventListener("change", aoMudarVista);
     if (controleCalor) controleCalor.addEventListener("change", desenharCalor);
     if (controlePeso) controlePeso.addEventListener("change", desenharCalor);
-    // a densidade por célula muda com o zoom: reescala para o calor continuar legível
-    mapa.on("zoomend", () => { if (camadaCalor) desenharCalor(); });
+    // a densidade por célula muda com o zoom: reescala o calor e, no zoom de
+    // inspeção, troca bolinha por ícone
+    mapa.on("zoomend", aoMudarVista);
+    mapa.on("moveend", () => { if (querIcones()) desenharPontos(); });
 
     function cor(tipo) {
       return cores[tipo] || "#ffb454";
@@ -230,10 +233,6 @@
       return tabela[categoria] || tabela.desconhecido ||
         { nome: categoria || "não identificado", cor: "#55607a", icone: "❓" };
     }
-
-    // Acima desse número o divIcon (um elemento DOM por ponto) engasga o
-    // navegador: aí volta para o círculo desenhado no canvas, que aguenta 20 mil
-    const LIMITE_ICONES = 1500;
 
     function marcadorComIcone(ponto) {
       const info = objeto(ponto.categoria);
@@ -323,24 +322,51 @@
       return Math.max(3, Math.min(9, 4 + (r + 100) / 12));
     }
 
-    async function carregar() {
-      const form = document.getElementById("form-mapa");
-      const params = new URLSearchParams(new FormData(form));
+    // A partir deste zoom o mapa está em modo de inspeção: o ponto vira ícone do
+    // objeto, mesmo que a consulta tenha 20 mil pontos — só o que está na tela é
+    // desenhado (é o que mantém o mapa rápido).
+    const ZOOM_ICONES = 17;
+    const LIMITE_ICONES_VISAO = 1200;
+    let modoDesenhado = "";
+    function querIcones() {
+      return (!controleIcones || controleIcones.checked) && mapa.getZoom() >= ZOOM_ICONES;
+    }
+
+    function popupDe(p) {
+      const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
+      const info = objeto(p.categoria);
+      return `<b>${escapar(ssid)}</b><br><span style="font-family:monospace">${escapar(p.mac)}</span><br>` +
+        `${escapar(info.icone)} ${escapar(info.nome)}<br>` +
+        `tipo: ${escapar(p.type)} · RSSI: ${p.rssi ?? "?"} dBm<br>` +
+        `canal: ${p.channel ?? "?"} · ${escapar(p.first_seen || "")}<br>` +
+        `<span style="opacity:.7">${p.obs_count > 1 ? p.obs_count + " observações" : ""}</span>`;
+    }
+
+    let infoBase = "";
+
+    function atualizarInfo(icones) {
+      const info = document.getElementById("mapa-info");
+      if (!info) return;
+      const modo = icones
+        ? `ícones a partir do zoom ${ZOOM_ICONES}`
+        : `bolinhas — aproxime até o zoom ${ZOOM_ICONES} para ver os ícones`;
+      info.textContent = infoBase ? `${infoBase} — ${modo}` : modo;
+    }
+
+    function desenharPontos() {
       grupo.clearLayers();
-      grupoIcones.clearLayers();
-      const dados = await api("/api/mapa/pontos?" + params.toString());
-      ultimosPontos = dados.pontos || [];
-      desenharCalor();
-      const resumo = dados.resumo || {};
-      const filtrado = !!dados.mac && (resumo.redes || 0) === 1;
-      desenharTrajeto(filtrado ? dados.pontos || [] : []);
-      const querIcones = !controleIcones || controleIcones.checked;
-      const comIcones = querIcones && (dados.pontos || []).length <= LIMITE_ICONES;
-      const limites = [];
-      (dados.pontos || []).forEach((p) => {
-        if (p.lat == null || p.lon == null) return;
+      camadaIcones.clearLayers();
+      const icones = querIcones();
+      // no modo ícone só entra o que aparece na tela (com folga para o arrasto);
+      // no modo bolinha entra tudo, no canvas, que aguenta o volume
+      const caixa = icones ? mapa.getBounds().pad(0.3) : null;
+      let desenhados = 0;
+      for (const p of ultimosPontos) {
+        if (p.lat == null || p.lon == null) continue;
+        if (caixa && !caixa.contains([p.lat, p.lon])) continue;
+        if (desenhados >= LIMITE_ICONES_VISAO) break;
         let marcador;
-        if (comIcones) {
+        if (icones) {
           marcador = marcadorComIcone(p);
         } else {
           marcador = L.circleMarker([p.lat, p.lon], {
@@ -351,18 +377,45 @@
             fillOpacity: 0.55,
           });
         }
-        const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
-        const info = objeto(p.categoria);
-        marcador.bindPopup(
-          `<b>${escapar(ssid)}</b><br><span style="font-family:monospace">${escapar(p.mac)}</span><br>` +
-            `${escapar(info.icone)} ${escapar(info.nome)}<br>` +
-            `tipo: ${escapar(p.type)} · RSSI: ${p.rssi ?? "?"} dBm<br>` +
-            `canal: ${p.channel ?? "?"} · ${escapar(p.first_seen || "")}<br>` +
-            `<span style="opacity:.7">${p.obs_count > 1 ? p.obs_count + " observações" : ""}</span>`
-        );
-        (comIcones ? grupoIcones : grupo).addLayer(marcador);
-        limites.push([p.lat, p.lon]);
-      });
+        marcador.bindPopup(popupDe(p));
+        (icones ? camadaIcones : grupo).addLayer(marcador);
+        desenhados += 1;
+      }
+      modoDesenhado = icones ? "icones" : "circulos";
+      atualizarInfo(icones);
+      return { icones, desenhados };
+    }
+
+    // troca de modo ao cruzar o zoom; dentro do modo ícone, refaz a cada
+    // movimento (só o que está na tela, então é barato)
+    function aoMudarVista() {
+      if (desenharCalor) desenharCalor();
+      const modo = querIcones() ? "icones" : "circulos";
+      if (modo === "icones" || modo !== modoDesenhado) desenharPontos();
+    }
+
+    async function carregar() {
+      const form = document.getElementById("form-mapa");
+      const params = new URLSearchParams(new FormData(form));
+      const dados = await api("/api/mapa/pontos?" + params.toString());
+      ultimosPontos = dados.pontos || [];
+      desenharCalor();
+      const resumo = dados.resumo || {};
+      const filtrado = !!dados.mac && (resumo.redes || 0) === 1;
+      desenharTrajeto(filtrado ? dados.pontos || [] : []);
+      const { icones } = desenharPontos();
+      const filtros = [];
+      if (dados.categoria) filtros.push(document.getElementById("categoria")?.selectedOptions[0]?.textContent || dados.categoria);
+      if (dados.mac) filtros.push(dados.pontos[0]?.ssid || dados.mac);
+      infoBase = (filtros.length ? filtros.join(" · ") + " — " : "") +
+        `${dados.total} ponto(s)` + (dados.truncado
+        ? ` — limitado a ${dados.limite}; refine os filtros para ver o resto`
+        : "");
+      atualizarInfo(icones);
+      const limites = [];
+      for (const p of ultimosPontos) {
+        if (p.lat != null && p.lon != null) limites.push([p.lat, p.lon]);
+      }
       if (limites.length) {
         const lat = parseFloat(alvoMapa.dataset.lat);
         const lon = parseFloat(alvoMapa.dataset.lon);
@@ -378,17 +431,6 @@
         }
       }
       mostrarResumo(dados);
-      const info = document.getElementById("mapa-info");
-      if (info) {
-        const filtros = [];
-        if (dados.categoria) filtros.push(document.getElementById("categoria")?.selectedOptions[0]?.textContent || dados.categoria);
-        if (dados.mac) filtros.push(dados.pontos[0]?.ssid || dados.mac);
-        info.textContent = (filtros.length ? filtros.join(" · ") + " — " : "") +
-          `${dados.total} ponto(s) exibido(s)` + (dados.truncado
-          ? ` — limitado a ${dados.limite}; refine os filtros para ver o resto`
-          : "") + (querIcones && !comIcones
-          ? ` — ícones desligados acima de ${LIMITE_ICONES} pontos` : "");
-      }
     }
 
     const formMapa = document.getElementById("form-mapa");
