@@ -109,6 +109,16 @@ td.mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 .mini-barras .num { color: var(--fraco); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- formulários */
+/* faixa de seleção ativa no mapa (uma rede escolhida) */
+.faixa-rede {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  margin-bottom: 10px; padding: 9px 14px; border-radius: 10px;
+  background: #12263d; border: 1px solid #1f4a6b; color: var(--texto);
+}
+.faixa-rede .mono { font-size: 13px; }
+.faixa-rede strong { font-size: 15px; }
+.faixa-rede .texto-fraco { font-size: 12.5px; }
+
 form.filtros {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 14px;
   background: var(--bg2); border: 1px solid var(--linha); border-radius: 10px; padding: 12px;

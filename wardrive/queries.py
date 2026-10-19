@@ -1,7 +1,13 @@
 """Consultas e agregações usadas pelas telas (dashboard, listas, mapa)."""
 from __future__ import annotations
 
+import re
+
 from . import config
+
+# MAC completo (aceita ":" ou "-") ou chave de célula — usado para decidir se o
+# filtro do mapa é por identificador de rede ou por nome
+MAC_ITEM = re.compile(r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 
 
 def overview(conn) -> dict:
@@ -213,8 +219,9 @@ def network_detail(conn, mac: str) -> dict | None:
     }
 
 
-def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",
-               limit: int | None = None, network_mode: bool = False) -> list[dict]:
+def _filtros_mapa(*, file_ids=None, types=None, date_from: str = "", date_to: str = "",
+                  mac: str = "") -> tuple[str, list]:
+    """WHERE comum às consultas do mapa (pontos e resumo)."""
     where = ["o.has_gps = 1"]
     params: list = []
     if file_ids:
@@ -230,10 +237,27 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
     if date_to:
         where.append("o.first_seen <= ?")
         params.append(date_to + " 23:59:59" if len(date_to) == 10 else date_to)
+    if mac:
+        # aceita MAC (completo) ou parte do nome da rede: o campo do mapa serve
+        # tanto para "colar o MAC" quanto para escolher pelo SSID
+        if MAC_ITEM.match(mac.strip()):
+            # o banco guarda sempre com ":" — aceita o MAC colado com hífen também
+            where.append("o.mac = ?")
+            params.append(mac.strip().replace("-", ":").upper())
+        else:
+            where.append("o.ssid LIKE ?")
+            params.append(f"%{mac.strip()}%")
+    return " AND ".join(where), params
 
-    where_sql = " AND ".join(where)
+
+def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",
+               limit: int | None = None, network_mode: bool = False, mac: str = "") -> list[dict]:
+    where_sql, params = _filtros_mapa(file_ids=file_ids, types=types, date_from=date_from,
+                                      date_to=date_to, mac=mac)
     limit = int(limit or config.load_settings()["map"]["max_points"])
     if network_mode:
+        filtro_mac = "AND n.mac = ?" if mac else ""
+        restantes = [mac.upper()] if mac else []
         rows = conn.execute(
             f"""SELECT n.mac, n.ssid, n.type, n.best_rssi AS rssi, n.best_lat AS lat,
                        n.best_lon AS lon, n.obs_count, n.first_seen, n.last_seen,
@@ -241,8 +265,9 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
                   FROM networks n
                  WHERE n.best_lat IS NOT NULL AND n.best_lon IS NOT NULL
                    {'AND n.type IN (' + ','.join('?' * len(types)) + ')' if types else ''}
+                   {filtro_mac}
                  ORDER BY n.obs_count DESC LIMIT ?""",
-            tuple(types or []) + (limit,),
+            tuple(types or []) + tuple(restantes) + (limit,),
         ).fetchall()
     else:
         rows = conn.execute(
@@ -253,6 +278,42 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
             tuple(params) + (limit,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def map_resumo(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",
+               mac: str = "", sessoes_limite: int = 8) -> dict:
+    """Estatísticas da seleção atual do mapa (usadas quando um item está filtrado)."""
+    where_sql, params = _filtros_mapa(file_ids=file_ids, types=types, date_from=date_from,
+                                      date_to=date_to, mac=mac)
+    linha = conn.execute(
+        f"""SELECT COUNT(*) AS pontos,
+                   COUNT(DISTINCT o.file_id) AS sessoes,
+                   COUNT(DISTINCT o.mac) AS redes,
+                   MIN(o.first_seen) AS primeira,
+                   MAX(o.first_seen) AS ultima,
+                   ROUND(AVG(o.rssi), 1) AS rssi_medio,
+                   MAX(o.rssi) AS rssi_max,
+                   COUNT(DISTINCT o.lat || ',' || o.lon) AS locais
+              FROM observations o WHERE {where_sql}""",
+        tuple(params),
+    ).fetchone()
+    resumo = dict(linha) if linha else {}
+    resumo["por_sessao"] = [
+        dict(r) for r in conn.execute(
+            f"""SELECT f.name, COUNT(*) AS obs, MIN(o.first_seen) AS primeira,
+                       MAX(o.first_seen) AS ultima, MAX(o.rssi) AS rssi_max
+                  FROM observations o JOIN files f ON f.id = o.file_id
+                 WHERE {where_sql}
+                 GROUP BY o.file_id ORDER BY obs DESC LIMIT ?""",
+            tuple(params) + (int(sessoes_limite),),
+        ).fetchall()
+    ]
+    if mac:
+        nome = conn.execute(
+            "SELECT ssid, type, auth_mode FROM networks WHERE mac = ?", (mac.upper(),)
+        ).fetchone()
+        resumo["rede"] = dict(nome) if nome else {}
+    return resumo
 
 
 def recent_uploads(conn, limit: int = 15) -> list[dict]:

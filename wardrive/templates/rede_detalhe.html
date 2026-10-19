@@ -27,7 +27,7 @@
     </div>
     <div class="sub">
       {% if network.best_lat is not none %}
-        <a href="{{ url_for('ui.mapa') }}?lat={{ network.best_lat }}&lon={{ network.best_lon }}&mac={{ network.mac }}">abrir no mapa</a>
+        <a href="{{ url_for('ui.mapa') }}?mac={{ network.mac }}">ver todos os pontos no mapa</a>
       {% endif %}
     </div>
   </div>

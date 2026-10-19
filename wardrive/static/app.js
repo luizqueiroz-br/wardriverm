@@ -147,6 +147,11 @@
       : null;
     if (camadaCalor) camadaCalor.addTo(mapa);
 
+    // trajeto do item selecionado: criado antes dos marcadores para ficar por baixo
+    const linhaTrajeto = L.polyline([], {
+      color: "#1e5f9e", weight: 3, opacity: 0, dashArray: "7 5", interactive: false,
+    }).addTo(mapa);
+
     const grupo = L.markerClusterGroup ? L.markerClusterGroup({ maxClusterRadius: 45 }) : L.layerGroup();
     mapa.addLayer(grupo);
     let ultimosPontos = [];
@@ -207,6 +212,76 @@
       return cores[tipo] || "#ffb454";
     }
 
+    function escapar(valor) {
+      // SSID vem de rede de terceiro: não pode entrar cru no innerHTML do popup
+      return String(valor == null ? "" : valor).replace(/[&<>"']/g, (c) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+      ));
+    }
+
+    function enquadrar(limites) {
+      // quando todos os pontos estão no mesmo quarteirão, o fitBounds pediria um
+      // zoom absurdo: 17 é o limite útil para leitura
+      const caixa = L.latLngBounds(limites);
+      mapa.setView(caixa.getCenter(), Math.min(17, mapa.getBoundsZoom(caixa)));
+    }
+
+    function desenharTrajeto(pontos) {
+      // a ordem de chegada é por data decrescente; o traçado precisa ser cronológico
+      const ordenados = pontos
+        .filter((p) => p.lat != null && p.lon != null)
+        .slice()
+        .sort((a, b) => String(a.first_seen || "").localeCompare(String(b.first_seen || "")));
+      // pontos repetidos no mesmo lugar não acrescentam nada ao desenho
+      const unicos = [];
+      for (const p of ordenados) {
+        const ultimo = unicos[unicos.length - 1];
+        if (!ultimo || ultimo[0] !== p.lat || ultimo[1] !== p.lon) unicos.push([p.lat, p.lon]);
+      }
+      if (unicos.length > 1) {
+        linhaTrajeto.setLatLngs(unicos);
+        linhaTrajeto.setStyle({ opacity: 0.5 });
+      } else {
+        linhaTrajeto.setLatLngs([]);
+      }
+    }
+
+    function mostrarResumo(dados) {
+      const faixa = document.getElementById("faixa-rede");
+      const tabela = document.getElementById("resumo-rede");
+      const r = dados.resumo || {};
+      const rede = r.rede || null;
+      const selecionado = !!dados.mac && (r.redes || 0) === 1;
+      if (faixa) faixa.hidden = !selecionado;
+      if (tabela) tabela.hidden = !selecionado;
+      if (!selecionado) return;
+      const nome = rede && rede.ssid ? rede.ssid : "(SSID oculto)";
+      document.getElementById("resumo-titulo").textContent = nome;
+      document.getElementById("resumo-mac").textContent =
+        dados.pontos[0] ? "· " + dados.pontos[0].mac : "";
+      const ficha = document.getElementById("resumo-detalhe");
+      if (ficha && dados.pontos[0]) {
+        ficha.href = "/redes/" + encodeURIComponent(dados.pontos[0].mac);
+      }
+      const partes = [
+        `${r.pontos || 0} observação(ões)`,
+        `${r.locais || 0} local(is) distinto(s)`,
+        `${r.sessoes || 0} sessão(ões)`,
+        r.rssi_medio != null ? `RSSI médio ${r.rssi_medio} dBm (máx ${r.rssi_max})` : "",
+        r.primeira ? `de ${r.primeira} a ${r.ultima}` : "",
+        rede && rede.auth_mode ? rede.auth_mode : "",
+      ].filter(Boolean);
+      document.getElementById("resumo-linha").textContent = partes.join(" · ");
+      const corpo = document.querySelector("#resumo-sessoes tbody");
+      if (corpo) {
+        corpo.innerHTML = (r.por_sessao || []).map((s) => (
+          `<tr><td class="mono">${escapar(s.name)}</td><td class="num">${s.obs}</td>` +
+          `<td>${escapar(s.primeira || "")}</td><td>${escapar(s.ultima || "")}</td>` +
+          `<td class="num">${s.rssi_max ?? ""}</td></tr>`
+        )).join("") || `<tr><td colspan="5" class="texto-fraco">sem observações com GPS</td></tr>`;
+      }
+    }
+
     function raio(rssi) {
       const r = Number(rssi);
       if (!isFinite(r)) return 4;
@@ -220,6 +295,9 @@
       const dados = await api("/api/mapa/pontos?" + params.toString());
       ultimosPontos = dados.pontos || [];
       desenharCalor();
+      const resumo = dados.resumo || {};
+      const filtrado = !!dados.mac && (resumo.redes || 0) === 1;
+      desenharTrajeto(filtrado ? dados.pontos || [] : []);
       const limites = [];
       (dados.pontos || []).forEach((p) => {
         if (p.lat == null || p.lon == null) return;
@@ -232,9 +310,9 @@
         });
         const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
         marcador.bindPopup(
-          `<b>${ssid}</b><br><span style="font-family:monospace">${p.mac}</span><br>` +
-            `tipo: ${p.type} · RSSI: ${p.rssi ?? "?"} dBm<br>` +
-            `canal: ${p.channel ?? "?"} · ${p.first_seen || ""}<br>` +
+          `<b>${escapar(ssid)}</b><br><span style="font-family:monospace">${escapar(p.mac)}</span><br>` +
+            `tipo: ${escapar(p.type)} · RSSI: ${p.rssi ?? "?"} dBm<br>` +
+            `canal: ${p.channel ?? "?"} · ${escapar(p.first_seen || "")}<br>` +
             `<span style="opacity:.7">${p.obs_count > 1 ? p.obs_count + " observações" : ""}</span>`
         );
         grupo.addLayer(marcador);
@@ -244,15 +322,17 @@
         const lat = parseFloat(alvoMapa.dataset.lat);
         const lon = parseFloat(alvoMapa.dataset.lon);
         mapa.invalidateSize();
-        if (isFinite(lat) && isFinite(lon)) {
+        if (filtrado) {
+          // um item selecionado pode ter sido visto ao longo de um trajeto:
+          // enquadrar todos os pontos mostra o "onde ele apareceu" de uma vez
+          enquadrar(limites);
+        } else if (isFinite(lat) && isFinite(lon)) {
           mapa.setView([lat, lon], 17);
         } else {
-          const caixa = L.latLngBounds(limites);
-          // quando todos os pontos estão no mesmo quarteirão, o fitBounds pediria
-          // um zoom absurdo: 17 é o limite útil para leitura
-          mapa.setView(caixa.getCenter(), Math.min(17, mapa.getBoundsZoom(caixa)));
+          enquadrar(limites);
         }
       }
+      mostrarResumo(dados);
       const info = document.getElementById("mapa-info");
       if (info) {
         info.textContent = `${dados.total} ponto(s) exibido(s)` + (dados.truncado

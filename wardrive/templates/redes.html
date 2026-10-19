@@ -59,7 +59,8 @@
       <td>
         <div class="linha-botoes">
           {% if r.best_lat is not none %}
-            <a class="botao mini" href="{{ url_for('ui.mapa') }}?lat={{ r.best_lat }}&lon={{ r.best_lon }}&mac={{ r.mac }}">mapa</a>
+            <a class="botao mini" title="ver no mapa todos os lugares onde esta rede apareceu"
+               href="{{ url_for('ui.mapa') }}?mac={{ r.mac }}">mapa</a>
           {% endif %}
           <form method="post" action="{{ url_for('ui.exportar_criar') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

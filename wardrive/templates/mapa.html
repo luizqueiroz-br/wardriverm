@@ -14,6 +14,9 @@
 <h1>Mapa das coletas</h1>
 
 <form class="filtros" id="form-mapa" method="get" action="{{ url_for('ui.mapa') }}">
+  <div class="campo largo"><label for="mac">rede (MAC ou nome)</label>
+    <input type="search" id="mac" name="mac" value="{{ request.args.get('mac','') }}"
+           placeholder="cole o MAC ou parte do SSID — veja em Redes"></div>
   <div class="campo"><label for="modo">exibir</label>
     <select id="modo" name="modo">
       <option value="observacoes">cada observação</option>
@@ -37,6 +40,17 @@
   <div class="campo"><label>&nbsp;</label><button type="submit" class="principal">Aplicar</button></div>
 </form>
 
+<div class="faixa-rede" id="faixa-rede" hidden>
+  <div>
+    <strong id="resumo-titulo">—</strong>
+    <span class="mono texto-fraco" style="font-size:13px" id="resumo-mac"></span>
+    <div class="texto-fraco" id="resumo-linha"></div>
+  </div>
+  <div class="linha-botoes">
+    <a class="botao mini" id="resumo-detalhe" href="#">ficha da rede</a>
+    <a class="botao mini" href="{{ url_for('ui.mapa') }}">limpar filtro</a>
+  </div>
+</div>
 <div id="mapa"
      data-lat="{{ request.args.get('lat', '') }}"
      data-lon="{{ request.args.get('lon', '') }}"></div>
@@ -53,8 +67,31 @@
     </select></label>
   <span id="mapa-info" class="texto-fraco"></span>
 </div>
+<div class="faixa-rede" id="faixa-rede" hidden>
+  <div>
+    <strong id="resumo-titulo">—</strong>
+    <span class="mono texto-fraco" style="font-size:13px" id="resumo-mac"></span>
+    <div class="texto-fraco" id="resumo-linha"></div>
+  </div>
+  <div class="linha-botoes">
+    <a class="botao mini" id="resumo-detalhe" href="#">ficha da rede</a>
+    <a class="botao mini" href="{{ url_for('ui.mapa') }}">limpar filtro</a>
+  </div>
+</div>
+<div class="cartao compacto" id="resumo-rede" style="margin-top:12px" hidden>
+  <h2 style="margin-bottom:8px">Onde esta rede apareceu</h2>
+  <div class="tabela-rolagem">
+    <table id="resumo-sessoes">
+      <thead><tr><th>sessão</th><th class="num">observações</th><th>primeira vez</th>
+                 <th>última vez</th><th class="num">RSSI máx</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
 <p class="solta-baixo">
   Os pontos vêm do seu banco local. O tamanho do círculo acompanha o RSSI.
+  Escolha uma rede em <a href="{{ url_for('ui.redes') }}">Redes</a> para ver no mapa
+  todos os lugares onde ela apareceu.
 </p>
 {% endblock %}
 

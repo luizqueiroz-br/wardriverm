@@ -56,6 +56,10 @@ Pela linha de comando:
 * Detalhe da rede (todos os nomes vistos naquele MAC, sinal mais forte, coordenada
   de referência) e detalhe da sessão (metadados, pré-header, área coberta, tabela
   completa de observações).
+* Escolher uma rede (na lista de Redes ou digitando o MAC/SSID no mapa) filtra o mapa
+  para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
+  coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
+  sessões onde foi vista.
 * Mapa (Leaflet + OpenStreetMap) com pontos por observação ou uma bolinha por rede,
   coloridos por tipo e dimensionados pelo RSSI — mais uma **camada de calor** opcional
   (densidade das coletas, com peso por contagem ou pelo RSSI) que se reescala com o zoom.
