@@ -19,8 +19,10 @@
            placeholder="cole o MAC ou parte do SSID — veja em Redes"></div>
   <div class="campo"><label for="modo">exibir</label>
     <select id="modo" name="modo">
-      <option value="observacoes">cada observação</option>
-      <option value="redes">uma por rede (melhor sinal)</option>
+      {% set modo_atual = request.args.get('modo', 'observacoes') %}
+      <option value="observacoes" {{ 'selected' if modo_atual == 'observacoes' }}>cada observação</option>
+      <option value="redes" {{ 'selected' if modo_atual == 'redes' }}>uma por rede (melhor sinal)</option>
+      <option value="cobertura" {{ 'selected' if modo_atual == 'cobertura' }}>cobertura (grade de ~100 m)</option>
     </select></div>
   <div class="campo"><label for="categoria">objeto</label>
     <select id="categoria" name="categoria">
@@ -69,6 +71,12 @@
   <span><i style="background:#a98bff"></i>Bluetooth clássico</span>
   <span><i style="background:#ffb454"></i>celular</span>
   <span><i class="gradiente-calor"></i>calor: menos → mais coletas</span>
+  <span id="legenda-cobertura" hidden>
+    <span><i style="background:#2f6f9e"></i>1 passagem</span>
+    <span><i style="background:#3fa06a"></i>2–5</span>
+    <span><i style="background:#ffd166"></i>6+</span>
+    <span class="texto-fraco">célula de ~100 m · o vazio é onde você nunca passou</span>
+  </span>
   <label class="check" style="margin-left:auto; gap:8px">peso do calor
     <select id="calor-peso" name="calor_peso" style="min-width:210px">
       <option value="densidade">densidade (cada coleta)</option>

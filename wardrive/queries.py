@@ -147,6 +147,27 @@ def sessions(conn, *, search: str = "", limit: int = 100, offset: int = 0) -> li
 SALTO_MAX_KM = 2.0
 
 
+def _somar_trechos(linhas) -> tuple[float, int]:
+    """Soma haversine entre leituras consecutivas, quebrando na troca de sessão.
+
+    `linhas` precisa vir ordenada por (file_id, first_seen). Trecho maior que
+    SALTO_MAX_KM é descartado (GPS pulando) e contado como salto.
+    """
+    total = 0.0
+    saltos = 0
+    anterior = None
+    for linha in linhas:
+        atual = (linha[0], linha[1], linha[2])
+        if anterior is not None and anterior[0] == atual[0]:
+            trecho = geo.distancia_km(anterior[1], anterior[2], atual[1], atual[2])
+            if trecho <= SALTO_MAX_KM:
+                total += trecho
+            else:
+                saltos += 1
+        anterior = atual
+    return total, saltos
+
+
 def stats_percurso(conn, file_id: int, *, gravar: bool = True) -> dict:
     """Distância, duração, velocidade média, redes/km e área de uma sessão.
 
@@ -168,17 +189,9 @@ def stats_percurso(conn, file_id: int, *, gravar: bool = True) -> dict:
     if not linhas:
         return base
 
-    distancia = 0.0
-    saltos = 0
-    anterior = None
-    for linha in linhas:
-        if anterior is not None:
-            trecho = geo.distancia_km(anterior[0], anterior[1], linha["lat"], linha["lon"])
-            if trecho <= SALTO_MAX_KM:
-                distancia += trecho
-            else:
-                saltos += 1
-        anterior = (linha["lat"], linha["lon"])
+    distancia, saltos = _somar_trechos(
+        [(file_id, l["lat"], l["lon"]) for l in linhas]
+    )
 
     # duração pelas datas (texto ISO: comparar como string basta para o mesmo fuso)
     duracao = None
@@ -230,6 +243,63 @@ def recalcular_percursos(conn, *, forcar: bool = False) -> dict:
     for file_id in ids:
         total += stats_percurso(conn, file_id).get("distancia_km") or 0
     return {"sessoes": len(ids), "km": round(total, 1)}
+
+
+# --------------------------------------------------------------------------- #
+# Cobertura: grade de ~100 m com quantas vezes cada célula foi coletada
+# --------------------------------------------------------------------------- #
+#: 0,001° ≈ 111 m de latitude (e ~102 m de longitude em SP) — a célula da grade
+GRAU_CELULA = 0.001
+
+
+def cobertura(conn, *, file_ids=None, types=None, date_from: str = "", date_to: str = "",
+              limite: int = 20000) -> dict:
+    """Células visitadas + km rodados + área coberta da seleção atual.
+
+    A célula nunca coletada é justamente a ausência: o mapa mostra o que existe, e
+    o buraco é o que salta aos olhos. `n` é quantas observações caíram na célula —
+    serve para distinguir "passei uma vez de raspa" de "passo aqui todo dia".
+    """
+    where_sql, params = _filtros_mapa(file_ids=file_ids, types=types,
+                                      date_from=date_from, date_to=date_to)
+    celulas = [dict(r) for r in conn.execute(
+        f"""SELECT round(o.lat, 3) AS lat, round(o.lon, 3) AS lon, COUNT(*) AS n
+              FROM observations o WHERE {where_sql}
+             GROUP BY 1, 2 ORDER BY n DESC, lat, lon LIMIT ?""",
+        tuple(params) + (int(limite),),
+    ).fetchall()]
+
+    # km: mesma conta do percurso, agora sobre a seleção (inclusive várias sessões)
+    trechos = conn.execute(
+        f"""SELECT o.file_id, o.lat, o.lon FROM observations o
+             WHERE {where_sql} ORDER BY o.file_id, o.first_seen, o.id""",
+        tuple(params),
+    ).fetchall()
+    km, saltos = _somar_trechos([(t["file_id"], t["lat"], t["lon"]) for t in trechos])
+
+    # área: cada célula conta uma vez; a largura da célula encolhe com o cosseno da
+    # latitude, então o tamanho é calculado pela latitude média das células
+    if celulas:
+        lat_media = sum(c["lat"] for c in celulas) / len(celulas)
+        largura_km = (geo.distancia_km(lat_media, 0, lat_media, GRAU_CELULA))
+        altura_km = geo.distancia_km(lat_media, 0, lat_media + GRAU_CELULA, 0)
+        area_km2 = round(len(celulas) * largura_km * altura_km, 2)
+    else:
+        area_km2 = 0.0
+
+    por_faixa = {"1": 0, "2-5": 0, "6+": 0}
+    for c in celulas:
+        if c["n"] >= 6:
+            por_faixa["6+"] += 1
+        elif c["n"] >= 2:
+            por_faixa["2-5"] += 1
+        else:
+            por_faixa["1"] += 1
+
+    return {"celulas": celulas, "total_celulas": len(celulas), "km": round(km, 1),
+            "km2": area_km2, "saltos_descartados": saltos, "por_faixa": por_faixa,
+            "obs": sum(c["n"] for c in celulas), "grau_celula": GRAU_CELULA,
+            "truncado": len(celulas) >= int(limite)}
 
 
 def progresso_geral(conn) -> dict:

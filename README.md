@@ -61,6 +61,9 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Cobertura**: modo `cobertura` no mapa desenha a grade de ~100 m com as passagens
+  (azul 1, verde 2–5, amarelo 6+); o vazio é onde você nunca passou. A mesma consulta
+  devolve km rodados e km² cobertos da seleção, com o corte de salto do percurso.
 * **Métricas de percurso**: cada sessão mostra **km rodados**, duração, velocidade média,
   redes por km e área coberta; o painel soma o acervo ("217,7 km em 26,5 h"). Sessão
   sem GPS aparece como "—", nunca 0 km. Trechos de GPS que "pulam" (> 2 km entre duas

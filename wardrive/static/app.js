@@ -167,6 +167,14 @@
     // modo ícone usa camada própria, SEM agrupamento: o ícone existe para ser
     // visto, e ali só entram os pontos da tela (bounded), então não pesa
     const camadaIcones = L.layerGroup().addTo(mapa);
+    // cobertura: um <path> SVG por célula. Testei canvas (próprio e via L.rectangle)
+    // e o bitmap não aparece nesta máquina; SVG é verificável e some/aparece igual.
+    // Paleta sequencial: azul (1 passagem) → verde (2-5) → amarelo (6+). Sem
+    // preenchimento opaco, porque a grade precisa deixar a rua aparecer embaixo.
+    const CORES_COBERTURA = { "1": "#2f6f9e", "2-5": "#2f9e63", "6+": "#e8b31d" };
+    const LIMITE_CELULAS_DESENHO = 6000;
+    let camadaCobertura = null;
+    let modoCobertura = false;
     let ultimosPontos = [];
 
     function elementoCalor() {
@@ -390,13 +398,81 @@
     // movimento (só o que está na tela, então é barato)
     function aoMudarVista() {
       if (desenharCalor) desenharCalor();
+      if (modoCobertura) return;   // a grade não depende do zoom (célula fixa em graus)
       const modo = querIcones() ? "icones" : "circulos";
       if (modo === "icones" || modo !== modoDesenhado) desenharPontos();
+    }
+
+    function desenharCobertura(dados) {
+      removerCobertura();
+      const renderer = L.svg({ padding: 0.6 });
+      camadaCobertura = L.layerGroup().addTo(mapa);
+      const grau = (dados.grau_celula || 0.001) / 2;
+      const limites = [];
+      const celulas = dados.celulas || [];
+      for (const celula of celulas.slice(0, LIMITE_CELULAS_DESENHO)) {
+        const faixa = celula.n >= 6 ? "6+" : celula.n >= 2 ? "2-5" : "1";
+        const canto1 = [celula.lat - grau, celula.lon - grau];
+        const canto2 = [celula.lat + grau, celula.lon + grau];
+        L.rectangle([canto1, canto2], {
+          renderer: renderer,
+          stroke: true,
+          color: "#0b1220",
+          weight: 0.6,
+          opacity: 0.35,
+          fillColor: CORES_COBERTURA[faixa],
+          fillOpacity: 0.3,
+          interactive: false,
+        }).addTo(camadaCobertura);
+        if (limites.length < 800) limites.push(canto1, canto2);
+      }
+      return limites;
+    }
+
+    function removerCobertura() {
+      if (camadaCobertura) {
+        mapa.removeLayer(camadaCobertura);
+        camadaCobertura = null;
+      }
     }
 
     async function carregar() {
       const form = document.getElementById("form-mapa");
       const params = new URLSearchParams(new FormData(form));
+      const legendaCobertura = document.getElementById("legenda-cobertura");
+      const emCobertura = params.get("modo") === "cobertura";
+      modoCobertura = emCobertura;
+
+      if (emCobertura) {
+        // modo cobertura: grade em vez de pontos — some com marcadores e calor
+        const dados = await api("/api/mapa/cobertura?" + params.toString());
+        camadaIcones.clearLayers();
+        grupo.clearLayers();
+        removerCobertura();
+        ultimosPontos = [];
+        desenharCalor();
+        desenharTrajeto([]);
+        const limites = desenharCobertura(dados);
+        if (legendaCobertura) legendaCobertura.hidden = false;
+        mostrarResumo({});
+        infoBase = `${dados.total_celulas} célula(s) de ~100 m · ` +
+          `~${String(dados.km2).replace(".", ",")} km² · ` +
+          `${String(dados.km).replace(".", ",")} km rodados · ${dados.obs} leitura(s)` +
+          (dados.truncado ? ` — limitado a ${dados.total_celulas}; reduza o período` : "");
+        const info = document.getElementById("mapa-info");
+        if (info) info.textContent = infoBase;
+        if (limites.length) {
+          mapa.invalidateSize();
+          const lat = parseFloat(alvoMapa.dataset.lat);
+          const lon = parseFloat(alvoMapa.dataset.lon);
+          if (isFinite(lat) && isFinite(lon)) mapa.setView([lat, lon], 17);
+          else enquadrar(limites);
+        }
+        return;
+      }
+      if (legendaCobertura) legendaCobertura.hidden = true;
+      removerCobertura();
+
       const dados = await api("/api/mapa/pontos?" + params.toString());
       ultimosPontos = dados.pontos || [];
       desenharCalor();

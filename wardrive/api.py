@@ -31,6 +31,22 @@ def resumo():
     return jsonify(queries.overview(conn))
 
 
+@api.get("/mapa/cobertura")
+def mapa_cobertura():
+    conn = db.get_db()
+    tipos = [t for t in request.args.getlist("tipo") if t]
+    file_ids = [i for i in request.args.getlist("sessao") if i.isdigit()]
+    dados = queries.cobertura(
+        conn,
+        file_ids=file_ids,
+        types=tipos,
+        date_from=request.args.get("de", ""),
+        date_to=request.args.get("ate", ""),
+        limite=request.args.get("limite", 20000, type=int),
+    )
+    return jsonify(dados)
+
+
 @api.get("/mapa/pontos")
 def mapa_pontos():
     conn = db.get_db()
