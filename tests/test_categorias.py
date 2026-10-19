@@ -61,6 +61,52 @@ class RegrasTests(unittest.TestCase):
         self.assertNotEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "Spark Net", "")[0], "drone")
         self.assertNotEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "Casa do Phantom", "")[0], "drone")
 
+    def test_categorias_novas_por_fabricante(self):
+        casos = {
+            ("", "Kontakt Micro-Location Sp. z o.o."): "beacon",
+            ("", "Neutron Holdings, Inc."): "micromobilidade",
+            ("", "Ingenico"): "pagamento",
+            ("", "Queclink Wireless Solutions Co., Ltd."): "rastreador",
+            ("", "iRobot Corporation"): "robo",
+            ("", "Bambu Lab"): "impressora3d",
+            ("", "Reality Labs"): "vr",
+            ("", "Yealink Network Technology Co., Ltd."): "telefone",
+            ("", "SpaceX Services, Inc."): "satelite",
+            ("", "Landis+Gyr"): "medidor",
+        }
+        for (ssid, vendor), esperado in casos.items():
+            with self.subTest(vendor=vendor):
+                self.assertEqual(categorias.classificar("BLE", "00:11:22:33:44:55", ssid, vendor)[0],
+                                 esperado)
+
+    def test_categorias_novas_por_nome(self):
+        casos = {
+            "Bambu Lab X1C": "impressora3d",
+            "Roborock S8": "robo",
+            "Starlink": "satelite",
+            "Grandstream GXP": "telefone",
+            "Meta Quest 3": "vr",
+        }
+        for ssid, esperado in casos.items():
+            with self.subTest(ssid=ssid):
+                self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", ssid, "")[0],
+                                 esperado)
+
+    def test_hitron_nao_e_medidor_de_energia(self):
+        # "Hitron" contém "itron": sem limite de palavra virava medidor
+        self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "LEOBHERING_2.4G",
+                                               "Hitron Technologies. Inc")[0], "desconhecido")
+
+    def test_grandstream_de_hotspot_e_rede(self):
+        # Grandstream faz AP de hotspot: o SSID de loja/banco é o que aparece na rua
+        self.assertEqual(categorias.classificar("WIFI", "00:11:22:33:44:55", "Clientes_CAIXA",
+                                               "Grandstream Networks Inc")[0], "roteador")
+
+    def test_modulo_de_radio_tem_confianca_media(self):
+        categoria, confianca, _ = categorias.classificar("BLE", "00:11:22:33:44:55", "",
+                                                        "MCS Logic Inc.")
+        self.assertEqual(confianca, "media")
+
     def test_mac_aleatorio_sem_outra_pista(self):
         # 0x46 tem o bit localmente administrado ligado (BLE embaralhado)
         self.assertEqual(categorias.classificar("BLE", "46:1A:2B:3C:4D:5E", "", "")[0], "aleatorio")

@@ -30,15 +30,25 @@ CATEGORIAS: dict[str, str] = {
     "celular": "celular / tablet",
     "computador": "computador",
     "veiculo": "veículo",
+    "micromobilidade": "patinete / bike",
     "drone": "drone",
-    "smart_tag": "smart tag / rastreador",
+    "rastreador": "rastreador de frota",
+    "smart_tag": "smart tag",
     "vestivel": "vestível",
+    "beacon": "beacon BLE",
     "casa": "casa conectada",
+    "medidor": "medidor de energia",
+    "robo": "robô aspirador",
     "audio": "áudio",
     "impressora": "impressora",
+    "impressora3d": "impressora 3D",
+    "pagamento": "maquininha (POS)",
     "camera": "câmera",
     "tv": "TV / mídia",
     "console": "videogame",
+    "vr": "VR / AR",
+    "telefone": "telefone IP",
+    "satelite": "internet via satélite",
     "devkit": "placa de dev (ESP32)",
     "aleatorio": "MAC aleatório",
     "desconhecido": "não identificado",
@@ -53,15 +63,25 @@ CORES: dict[str, str] = {
     "celular": "#7aa2ff",
     "computador": "#61d4d0",
     "veiculo": "#ffb454",
+    "micromobilidade": "#5ed67f",
     "drone": "#ff5fa2",
+    "rastreador": "#ff8c42",
     "smart_tag": "#ff8fb1",
     "vestivel": "#c58bff",
+    "beacon": "#b39ddb",
     "casa": "#9fd356",
+    "medidor": "#ffd23f",
+    "robo": "#9ad5ca",
     "audio": "#ffd166",
     "impressora": "#b0b7c3",
+    "impressora3d": "#7bc4ff",
+    "pagamento": "#f4a261",
     "camera": "#ff7a6b",
     "tv": "#8ecae6",
     "console": "#e07a5f",
+    "vr": "#a3e048",
+    "telefone": "#b8c0cc",
+    "satelite": "#8fd3ff",
     "devkit": "#00d1b2",
     "aleatorio": "#6b7688",
     "desconhecido": "#55607a",
@@ -91,6 +111,11 @@ REGRAS_VENDOR: list[tuple[str, str]] = [
     (r"pirelli|jiuzhou|skyworth|fogconn|sagemcom broadband", "roteador"),
     (r"arcadyan|mercury communication|taicang t&w|vsolution|bilian|fortinet|shenzhen sdmc",
      "roteador"),
+    # Inventus Power (Manaus) aparece com 489 redes Wi-Fi com SSID de pessoa
+    # ("Janaina", "ALESSANDRA") e sinal de rua: é CPE de assinante montada aqui.
+    # V-Solution e HDV fabricam ONU/GPON — os nomes do IEEE vêm com grafias
+    # diferentes ("V-Solution", "Phoelectron"), por isso as variações.
+    (r"inventus power|hdv pho?toelectron|essys|v-?solution", "roteador"),
     (r"linksys|belkin", "roteador"),
     (r"parkervision|allied telesis|edgecore|extreme networks", "roteador"),
     # --- celulares / tablets ---------------------------------------------------
@@ -104,6 +129,7 @@ REGRAS_VENDOR: list[tuple[str, str]] = [
     (r"google", "celular"),
     (r"tcl |positivo|multilaser|hmd global|nokia mobile", "celular"),
     (r"transsion|tecno|infinix|itel", "celular"),
+    (r"hon hai precision|byd electronic", "celular"),
     # --- computadores ----------------------------------------------------------
     (r"intel corporate|intel corporation", "computador"),
     (r"dell|lenovo|acer|micro-star|asustek.*notebook|clevo", "computador"),
@@ -120,6 +146,8 @@ REGRAS_VENDOR: list[tuple[str, str]] = [
     (r"stellantis|fiat|peugeot|citroen|renault|dacia|byd auto|great wall|chery|geely", "veiculo"),
     (r"continental automotive|bosch|denso|valeo|aptiv|magna|harman automotive|lear corp",
      "veiculo"),
+    # Visteon = painel/infotainment; Positron = alarme automotivo com Bluetooth
+    (r"visteon|positron|texa spa", "veiculo"),
     # --- drones -----------------------------------------------------------------
     # vem antes de "veiculo"/"camera" porque o nome do drone é a pista mais forte
     # (Tello-XXXXXX, DJI-..., MavicMini-...); "spark"/"phantom" só com sufixo,
@@ -127,11 +155,45 @@ REGRAS_VENDOR: list[tuple[str, str]] = [
     (r"^sz dji|dji technology|ryze tech|autel robotics|parrot sa|parrot drones|skydio|"
      r"hubsan|yuneec|walkera|eachine|holy stone|zero zero robotics", "drone"),
     (r"tile, inc|tile inc|chipolo|pebblebee|life360", "smart_tag"),
+    # beacons de varejo/evento (iBeacon/Eddystone)
+    (r"kontakt|estimote|gimbal|radius networks|minew|jaalee|bluecats|blue up", "beacon"),
+    # patinetes e bikes compartilhadas (BLE para desbloqueio)
+    (r"neutron holdings|bird rides|tembici|grow mobility|grin scooters|whoosh mobility|"
+     r"beam mobility|voi technology|zeus scooters|bolt operations", "micromobilidade"),
+    # rastreadores de frota/ativo (não são tag de consumidor)
+    (r"queclink|teltonika|calamp|concox|ruptela|samsara|sascar|onixsat|autotrac|meitrack|"
+     r"gowhere|wanway|\bcastel\b|suntech international", "rastreador"),
+    # maquininhas de cartão
+    # outras marcas curtas: limite de palavra para não casar dentro de outra palavra
+    (r"ingenico|verifone|pax technology|\bpax\b|newland payment|gertec|\belgin\b|bematech|"
+     r"diebold nixdorf|\bncr\b|worldline", "pagamento"),
+    # robôs aspirador
+    (r"irobot|roborock|ecovacs|dreame technology|narwal|neato robotics|sharkninja", "robo"),
+    # impressão 3D
+    (r"bambu lab|prusa research|creality|elegoo|anycubic|artillery|sovol|flashforge|"
+     r"raise3d|markforged|ultimaker|formlabs|makerbot|snapmaker", "impressora3d"),
+    # VR / AR
+    (r"reality labs|meta platforms|htc corporation.*vive|pico technology|valve corporation|"
+     r"vuzix|magic leap", "vr"),
+    # telefonia IP — Grandstream faz também AP de hotspot (é o que aparece na rua,
+    # com SSID de loja/banco), então fica em rede; os fabricantes abaixo são de
+    # telefone mesmo
+    (r"grandstream", "roteador"),
+    (r"\byealink\b|\bsnom\b|\bpolycom\b|\bavaya\b|\bmitel\b|\bfanvil\b|\bsangoma\b", "telefone"),
+    # internet via satélite
+    (r"spacex|starlink|viasat|hughes network|inmarsat|iridium|globalstar|kuiper", "satelite"),
+    # medidores inteligentes (com limite de palavra: "Hitron" contém "itron" e
+    # virava medidor de energia)
+    (r"landis\+gyr|\bitron\b|\bxylem\b|\bsensus\b|kaifa|nansen|\beletra\b|\belster\b|\bisw\b",
+     "medidor"),
     (r"garmin|fitbit|withings|polar electro|suunto|whoop|oura health", "vestivel"),
     (r"huami|amazfit|zepp", "vestivel"),
     # --- casa conectada --------------------------------------------------------
     (r"espressif", "devkit"),
     (r"nordic semiconductor|texas instruments|silicon labs|microchip technology", "devkit"),
+    # módulos/SoCs de rádio: o que carrega um desses costuma ser protótipo ou gadget
+    (r"alto ?beam|bouffalo|high-?flying|ai-link|sjit|fn-link|gaoshengda", "devkit"),
+    (r"actions semiconductor|mcs logic", "audio"),
     (r"tuya|itead|sonoff|allterco|shelly|aqara|lumi united|broadlink", "casa"),
     (r"midea|gree electric|hisense electric|haier|electrolux|whirlpool", "casa"),
     (r"signify|philips lighting|hue |lifx|yeelight|nanoleaf|wemo", "casa"),
@@ -166,7 +228,7 @@ REGRAS_SSID: list[tuple[str, str]] = [
     # roteadores de operadora e de fábrica: o nome é praticamente uma assinatura
     (r"^(vivo|claro|net[_\-]|oi[ _\-]|tim[ _\-]|algar|sercomtel|desktop-)", "roteador"),
     (r"^(tp-link|dlink|d-link|netgear|mercusys|intelbras|tenda|zyxel|asus)", "roteador"),
-    (r"^(geek|starlink|mega[_\-]|flash[_\-]|wi-?fi|rede[_\-]|casa-|brisanet|unifique)",
+    (r"^(geek|mega[_\-]|flash[_\-]|wi-?fi|rede[_\-]|casa-|brisanet|unifique)",
      "roteador"),
     # aparelhos pessoais
     (r"(iphone|ipad|ipod)", "celular"),
@@ -182,6 +244,17 @@ REGRAS_SSID: list[tuple[str, str]] = [
     # drones (nome do próprio drone costuma ser a única pista)
     (rf"{_marca('tello', 'mavic', 'anafi', 'skydio', 'hubsan', 'yuneec', 'bebop', 'autel')}"
      r"|\bdji[-_ ]|\bphantom \d|\bspark[-_][0-9a-z]{4}", "drone"),
+    # impressão 3D e robô aspirador (nome de fábrica bem característico)
+    (rf"{_marca('bambu', 'prusa', 'creality', 'elegoo', 'anycubic')}"
+     r"|bambu ?lab|\bprusa ?mini", "impressora3d"),
+    (rf"{_marca('roomba', 'roborock', 'deebot', 'ecovacs', 'dreame', 'narwal')}", "robo"),
+    # telefonia IP e VR
+    (rf"{_marca('grandstream', 'yealink', 'snom', 'polycom', 'fanvil')}", "telefone"),
+    # VR: "quest" e "pico" são palavras comuns ("Quest Net", "Pico do Jaraguá"),
+    # então só contam com marca explícita ou modelo numerado
+    (r"\boculus\b|\bmeta quest\b|\bquest [23]\b|\bpico [0-9]\b|\bhtc vive\b|\bvive[-_ ]", "vr"),
+    # internet via satélite
+    (rf"{_marca('starlink', 'viasat', 'hughesnet')}", "satelite"),
     # carros (o SSID costuma ser o nome do sistema embarcado)
     (rf"{_marca('tesla', 'toyota', 'honda', 'bmw', 'audi', 'volkswagen', 'chevrolet')}"
      r"|\bmodel [3syx]\b|^vw_|onstar\d|carplay|android ?auto|\bford ?sync\b|\bsync ?gen", "veiculo"),
@@ -278,6 +351,15 @@ def fabricante(mac: str, tabela: dict[str, str]) -> str:
 # --------------------------------------------------------------------------- #
 # Classificação
 # --------------------------------------------------------------------------- #
+#: fabricantes que produzem de tudo — o OUI sugere o tipo, não confirma
+FABRICANTES_GENERICOS = re.compile(r"^(apple|samsung|xiaomi|google|sony|huawei|lg)")
+#: fabricantes de componente/módulo: o que está em volta pode ser qualquer coisa
+FABRICANTES_COMPONENTE = re.compile(
+    r"^(actions semiconductor|mcs logic|alto ?beam|bouffalo|high-?flying|ai-?link|sjit|"
+    r"fn-link|gaoshengda|texas instruments|silicon labs|nordic semiconductor|"
+    r"realtek|broadcom|hon hai|byd electronic)")
+
+
 def classificar(tipo: str, mac: str, ssid: str, vendor: str) -> tuple[str, str, str]:
     """Devolve (categoria, confiança, origem). Confiança: alta | media | baixa."""
     nome = (ssid or "").strip().lower()
@@ -289,10 +371,11 @@ def classificar(tipo: str, mac: str, ssid: str, vendor: str) -> tuple[str, str, 
         alvo = vendor.lower()
         for padrao, categoria in REGRAS_VENDOR:
             if re.search(padrao, alvo):
-                # Apple/Samsung/Xiaomi/Google fabricam de tudo: o fabricante só
-                # sugere o tipo mais provável, não confirma
-                generico = re.match(r"^(apple|samsung|xiaomi|google|sony|huawei|lg)", alvo)
-                return categoria, "media" if generico else "alta", "oui"
+                # Apple/Samsung fabricam de tudo; quem faz módulo/rádio vende para
+                # qualquer produto — nos dois casos a categoria é dedução, não certeza
+                if FABRICANTES_GENERICOS.match(alvo) or FABRICANTES_COMPONENTE.match(alvo):
+                    return categoria, "media", "oui"
+                return categoria, "alta", "oui"
     if mac_aleatorio(mac):
         return "aleatorio", "media", "mac"
     if tipo == "BLE":
