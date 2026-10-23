@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import config, db, importer, queries, seguranca
+from . import canais, config, db, importer, queries, seguranca
 from .jobs import runner
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -29,6 +29,38 @@ def job_detail(job_id: str):
 def resumo():
     conn = db.get_db()
     return jsonify(queries.overview(conn))
+
+
+@api.get("/canais")
+def canais_do_ponto():
+    """Ocupação de canais em volta de um ponto (ou da coordenada da própria rede)."""
+    conn = db.get_db()
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    rede = (request.args.get("rede") or "").strip()
+    excluir = (request.args.get("mac") or "").strip() or None
+    nome = None
+
+    if rede:
+        linha = conn.execute(
+            """SELECT mac, ssid, best_lat, best_lon FROM networks
+                WHERE type = 'WIFI' AND best_lat IS NOT NULL
+                  AND (UPPER(mac) = ? OR ssid LIKE ?)
+                ORDER BY obs_count DESC LIMIT 1""",
+            (rede.upper(), f"%{rede}%")).fetchone()
+        if linha is None:
+            return jsonify({"erro": f"nenhuma rede Wi-Fi com GPS para “{rede}”"}), 404
+        lat, lon = linha["best_lat"], linha["best_lon"]
+        excluir = excluir or linha["mac"]
+        nome = linha["ssid"] or linha["mac"]
+
+    if lat is None or lon is None:
+        return jsonify({"erro": "informe a rede ou a latitude/longitude"}), 400
+
+    raio = max(10, min(2000, request.args.get("raio_m", 100, type=int)))
+    relatorio = canais.relatorio(conn, lat, lon, raio, excluir_mac=excluir)
+    relatorio["rede"] = nome
+    return jsonify(relatorio)
 
 
 @api.get("/mapa/risco")

@@ -61,6 +61,11 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Qual canal usar**: em Config, informe o SSID/MAC da sua rede (ou a coordenada) e um
+  raio; o sistema soma a **energia** dos vizinhos por canal — um AP a −40 dBm pesa muito
+  mais que um a −75, e canal vizinho (4, 5, 8…) também invade — e ranqueia os candidatos:
+  1/6/11 no 2,4 GHz e só os sem DFS (36–48, 149–165) no 5 GHz. Na ficha de uma rede há o
+  atalho para analisar aquele ponto.
 * **Mapa de risco**: modo `risco` no mapa pinta **uma bolinha por rede Wi-Fi** pela
   fragilidade — aberta (vermelho), WEP (laranja), WPA (amarelo), misto, WPA2 (azul),
   WPA3 (verde), 802.1X — sem agrupar, e a pior fica por cima. A página **Segurança**

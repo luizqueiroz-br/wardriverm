@@ -215,3 +215,21 @@ details summary { cursor: pointer; color: var(--fraco); }
   border: 1px solid var(--linha); background: var(--bg); font-size: 12px; }
 .pill-chave.ok { border-color: #235c45; color: #b8f5d8; }
 .pill-chave.falta { border-color: #6b5a2c; color: #ffe6b8; }
+
+/* ------------------------------------------------------ sugestão de canais */
+.sugestao-canais { display: grid; gap: 6px; margin-top: 10px; }
+.sugestao-canais .sugestao {
+  display: grid; grid-template-columns: 28px 46px 1fr; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 7px;
+  background: var(--bg3); border: 1px solid transparent;
+}
+.sugestao-canais .sugestao.melhor {
+  border-color: color-mix(in srgb, var(--acento) 60%, transparent);
+  background: color-mix(in srgb, var(--acento) 10%, var(--bg3));
+}
+.sugestao-canais .sugestao b { color: var(--fraco); font-size: 11px; font-weight: 600; }
+.sugestao-canais .canal-num {
+  font-family: var(--mono, monospace); font-size: 17px; font-weight: 700; color: var(--texto);
+}
+.sugestao-canais .melhor .canal-num { color: var(--acento); }
+.sugestao-canais .detalhe { color: var(--fraco); font-size: 12px; }

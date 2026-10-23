@@ -165,6 +165,32 @@
 </div>
 
 <div class="cartao" style="margin-top:14px">
+  <h2>Qual canal eu configuro no roteador</h2>
+  <p class="texto-fraco" style="margin-top:0">
+    Olha quem está no ar em volta de um ponto e soma a <strong>energia</strong> que cada
+    vizinho joga em cada canal — um AP a −40 dBm pesa muito mais que um a −75, e canal
+    vizinho (4, 5, 8…) também invade. Em 2,4 GHz só faz sentido 1, 6 ou 11; em 5 GHz,
+    só os sem DFS (36–48 e 149–165), que não somem quando detectam radar.
+  </p>
+  <form id="form-canais" class="filtros">
+    <div class="campo"><label for="canal-rede">sua rede (SSID ou MAC)</label>
+      <input type="text" id="canal-rede" placeholder="VIVOFIBRA-1A2B" autocomplete="off"></div>
+    <div class="campo"><label for="canal-lat">latitude</label>
+      <input type="number" id="canal-lat" step="any" placeholder="-23.27925"></div>
+    <div class="campo"><label for="canal-lon">longitude</label>
+      <input type="number" id="canal-lon" step="any" placeholder="-47.28741"></div>
+    <div class="campo"><label for="canal-raio">raio (m)</label>
+      <input type="number" id="canal-raio" value="100" min="10" max="2000" step="10"></div>
+    <button type="submit">analisar</button>
+  </form>
+  <p class="texto-fraco solta-baixo">
+    O SSID acha a rede e usa a coordenada dela (e a ignora na conta). A coordenada
+    também pode vir do mapa — copie dali.
+  </p>
+  <div id="canais-resultado"></div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
   <h2>Onde ficam as coisas</h2>
   <ul class="lista-limpa">
     <li><span>Banco de dados</span><span class="mono texto-fraco">data/wardrive.db</span></li>

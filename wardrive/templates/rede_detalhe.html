@@ -42,6 +42,12 @@
       {% endfor %}
     </ul>
     <p class="solta-baixo">Nomes repetidos indicam troca de SSID no mesmo ponto de acesso.</p>
+    {% if network.type == 'WIFI' %}
+    <p class="solta-baixo">
+      <a class="botao mini" href="{{ url_for('ui.config_page') }}?rede={{ network.mac }}">ver ocupação de canais aqui</a>
+      <span class="texto-fraco">quem está no ar em volta, e qual canal usar</span>
+    </p>
+    {% endif %}
   </div>
   <div class="cartao">
     <h2>Resumo para exportação</h2>

@@ -598,3 +598,109 @@
     carregar();
   }
 })();
+
+/* ------------------------------------------------------------------ canais */
+(() => {
+  const form = document.getElementById("form-canais");
+  if (!form) return;
+  const alvo = document.getElementById("canais-resultado");
+  const escapar2 = (texto) => String(texto ?? "").replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function barras(canais) {
+    const maximo = Math.max(1, ...canais.map((c) => c.aps));
+    return `<div class="mini-barras">` + canais.map((c) => `
+      <div class="linha">
+        <span class="rotulo">canal ${c.canal}</span>
+        <span class="trilha"><span style="width: ${(100 * c.aps / maximo).toFixed(1)}%"></span></span>
+        <span class="num">${c.aps} APs · ${String(c.rssi_medio).replace(".", ",")} dBm</span>
+      </div>`).join("") + `</div>`;
+  }
+
+  function sugestoes(itens) {
+    if (!itens.length) return "";
+    // a lista completa (9 no 5 GHz) vira ruído: os três primeiros respondem a pergunta
+    return `<div class="sugestao-canais">` + itens.slice(0, 3).map((s) => {
+      const rec = s.posicao === 1;
+      // acima de 200% a porcentagem vira número de vezes: "+22737%" não diz nada
+      const extra = rec ? "menos poluído"
+        : s.excesso_pct >= 200 ? `${Math.round(s.excesso_pct / 100)}× mais energia`
+        : `+${s.excesso_pct}% de energia`;
+      return `<div class="sugestao ${rec ? "melhor" : ""}">
+        <b>${s.posicao}º</b>
+        <span class="canal-num">${s.canal}</span>
+        <span class="detalhe">${s.aps_mesmo_canal} APs no próprio canal · ${extra}</span>
+      </div>`;
+    }).join("") + `</div>`;
+  }
+
+  function desenhar(dados) {
+    if (!dados.aps) {
+      return `<p class="texto-fraco">Nenhum AP com GPS em ${dados.raio_m} m deste ponto — nada para comparar.</p>`;
+    }
+    const partes = [];
+    if (dados.rede) {
+      partes.push(`<p class="texto-fraco">Ponto da rede <strong>${escapar2(dados.rede)}</strong>
+        (${dados.lat}, ${dados.lon}) · raio de ${dados.raio_m} m · ${dados.aps} APs vizinhos</p>`);
+    } else {
+      partes.push(`<p class="texto-fraco">${dados.lat}, ${dados.lon} · raio de ${dados.raio_m} m ·
+        ${dados.aps} APs vizinhos</p>`);
+    }
+    for (const faixa of ["2.4", "5"]) {
+      const bloco = dados.faixas[faixa];
+      if (!bloco || !bloco.aps) continue;
+      partes.push(`<h3 style="margin:14px 0 6px">${escapar2(bloco.rotulo)} — ${bloco.aps} APs</h3>`);
+      partes.push(barras(bloco.canais.slice(0, 8)));
+      partes.push(sugestoes(bloco.sugestao));
+      if (faixa === "5" && bloco.canais.some((c) => c.canal >= 52 && c.canal <= 144)) {
+        partes.push(`<p class="texto-fraco" style="margin:6px 0 0">
+          Os canais 52–144 aparecem na lista porque existem na região, mas são DFS — o
+          roteador pode abandoná-los por 60 s se detectar radar, por isso não entram na sugestão.</p>`);
+      }
+    }
+    return partes.join("");
+  }
+
+  async function analisar() {
+    const rede = document.getElementById("canal-rede").value.trim();
+    const lat = document.getElementById("canal-lat").value.trim();
+    const lon = document.getElementById("canal-lon").value.trim();
+    const raio = document.getElementById("canal-raio").value || "100";
+    const q = new URLSearchParams();
+    if (rede) {
+      q.set("rede", rede);
+    } else if (lat && lon) {
+      q.set("lat", lat);
+      q.set("lon", lon);
+    } else {
+      alvo.innerHTML = `<p class="texto-alerta">Informe o SSID da sua rede ou a coordenada.</p>`;
+      return;
+    }
+    q.set("raio_m", raio);
+    alvo.innerHTML = `<p class="texto-fraco">analisando…</p>`;
+    try {
+      const resposta = await fetch("/api/canais?" + q.toString());
+      const dados = await resposta.json();
+      alvo.innerHTML = resposta.ok
+        ? desenhar(dados)
+        : `<p class="texto-alerta">${escapar2(dados.erro || "falhou")}</p>`;
+    } catch (erro) {
+      alvo.innerHTML = `<p class="texto-alerta">Não deu para consultar: ${escapar2(erro)}</p>`;
+    }
+  }
+
+  form.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    analisar();
+  });
+
+  // ?rede=... ou ?lat=..&lon=.. na URL já roda a análise (link vindo da ficha da rede)
+  const params = new URLSearchParams(location.search);
+  const rede = params.get("rede");
+  const lat = params.get("lat");
+  const lon = params.get("lon");
+  if (rede) document.getElementById("canal-rede").value = rede;
+  if (lat) document.getElementById("canal-lat").value = lat;
+  if (lon) document.getElementById("canal-lon").value = lon;
+  if (rede || (lat && lon)) analisar();
+})();
