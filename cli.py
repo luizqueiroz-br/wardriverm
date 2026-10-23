@@ -117,6 +117,50 @@ def cmd_categorizar(args) -> int:
     return 0
 
 
+def cmd_puxar(args) -> int:
+    from wardrive import dispositivo
+
+    if args.diagnostico:
+        print(f"Abrindo {args.porta} a {args.baud} baud por {args.segundos}s — a saída crua vem abaixo.")
+        try:
+            linhas = dispositivo.diagnostico(args.porta, baud=args.baud, segundos=args.segundos)
+        except dispositivo.ErroDispositivo as erro:
+            print(f"✗ {erro}")
+            return 1
+        for linha in linhas:
+            print(f"  | {linha}")
+        print(f"\n{len(linhas)} linha(s). Se o cartão não listou nada, guarde esta saída: "
+              "o protocolo do seu firmware é diferente do assumido (sd list / sd read).")
+        return 0
+
+    destino = Path(args.destino or (_settings()["ward_dirs"][0] if _settings()["ward_dirs"] else "data/puxados"))
+    job = _ConsoleJob()
+    with db.session() as conn:
+        resumo = dispositivo.puxar(conn, args.porta, destino, importar=not args.sem_importar,
+                                   baud=args.baud, job=job)
+    if resumo["erro"]:
+        print(f"✗ {resumo['erro']}")
+    print(f"{len(resumo['baixados'])} baixado(s), {len(resumo['ignorados'])} já estava(m) aqui.")
+    for nome in resumo["baixados"]:
+        print(f"  + {nome}")
+    if resumo["importacao"]:
+        imp = resumo["importacao"]
+        print(f"  importação: {imp['novos']} sessão(ões), {imp['obs']} linha(s), {imp['erros']} erro(s)")
+    return 0 if not resumo["erro"] else 1
+
+
+def cmd_portas(args) -> int:
+    from wardrive import dispositivo
+
+    portas = dispositivo.portas_disponiveis()
+    if not portas:
+        print("Nenhuma porta serial encontrada. O ESP32 aparece como COMx no Windows.")
+        return 1
+    for item in portas:
+        print(f"  {item['porta']:<10} {item['descricao']}")
+    return 0
+
+
 def cmd_importar(args) -> int:
     dirs = args.dirs or _settings()["ward_dirs"]
     job = _ConsoleJob()
@@ -298,6 +342,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--forcar", action="store_true", help="reimporta mesmo que já exista")
     p.add_argument("--watch", type=int, default=0, help="repetir a varredura a cada N segundos")
     p.set_defaults(func=cmd_importar)
+
+    p = sub.add_parser("portas", help="lista as portas seriais (para achar o COM do ESP32)")
+    p.set_defaults(func=cmd_portas)
+
+    p = sub.add_parser("puxar", help="baixa os logs do cartão SD do ESP32 pela serial")
+    p.add_argument("--porta", required=True, help="ex.: COM5 (veja com `cli.py portas`)")
+    p.add_argument("--destino", help="pasta onde salvar (padrão: a primeira das configurações)")
+    p.add_argument("--baud", type=int, default=115200)
+    p.add_argument("--sem-importar", action="store_true", help="só baixar, não importar")
+    p.add_argument("--diagnostico", action="store_true",
+                   help="não baixa nada: mostra a resposta crua do firmware")
+    p.add_argument("--segundos", type=float, default=5.0,
+                   help="tempo de escuta no diagnóstico (padrão: 5)")
+    p.set_defaults(func=cmd_puxar)
 
     p = sub.add_parser("percursos", help="recalcula km/duração/velocidade das sessões")
     p.add_argument("--forcar", action="store_true", help="recalcula todas, não só as que faltam")

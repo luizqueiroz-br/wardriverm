@@ -270,6 +270,9 @@ def migrar(conn: sqlite3.Connection) -> None:
     conn.execute("""CREATE TABLE IF NOT EXISTS wigle_consultas (
         mac TEXT PRIMARY KEY, consultado_em TEXT NOT NULL, status TEXT NOT NULL,
         http_status INTEGER, corpo TEXT, erro TEXT)""")
+    # arquivos já puxados do cartão SD pela serial (para não baixar de novo)
+    conn.execute("""CREATE TABLE IF NOT EXISTS cartao_arquivos (
+        nome TEXT PRIMARY KEY, tamanho INTEGER, sha256 TEXT, baixado_em TEXT NOT NULL)""")
     conn.commit()
 
 

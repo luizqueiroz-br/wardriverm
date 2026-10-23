@@ -9,8 +9,8 @@ from pathlib import Path
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 
-from . import (categorias, config, db, exporter, importer, mudancas, privacidade, queries,
-               seguranca, suspeitos, uploaders, upload_service)
+from . import (categorias, config, db, dispositivo, exporter, importer, mudancas, privacidade,
+               queries, seguranca, suspeitos, uploaders, upload_service)
 from .jobs import runner
 
 ui = Blueprint("ui", __name__)
@@ -594,9 +594,30 @@ def uploads_enviar():
 @ui.get("/importar")
 def importar():
     conn = db.get_db()
-    return render_template("importar.html", pastas=config.load_settings()["ward_dirs"],
+    pastas = config.load_settings()["ward_dirs"]
+    return render_template("importar.html", pastas=pastas,
+                           portas=dispositivo.portas_disponiveis(),
+                           destino=str(Path(pastas[0]) if pastas else config.DATA_DIR / "puxados"),
                            sessoes=queries.sessions(conn, limit=40),
                            qualidade=queries.quality_report(conn))
+
+
+@ui.post("/importar/puxar")
+def importar_puxar():
+    porta = (request.form.get("porta") or "").strip()
+    destino = (request.form.get("destino") or "").strip() or str(config.DATA_DIR / "puxados")
+    baud = request.form.get("baud", type=int) or 115200
+    if not porta:
+        flash("Escolha a porta serial do dispositivo.", "erro")
+        return redirect(url_for("ui.importar"))
+
+    def _task(job, porta, destino, baud):
+        with db.session() as task_conn:
+            return dispositivo.puxar(task_conn, porta, destino, baud=baud, job=job)
+
+    job = runner.submit("serial", f"Puxar logs de {porta}", _task, porta, destino, baud)
+    flash(f"Puxando de {porta} (tarefa {job.id}) — acompanhe em Atividade.", "ok")
+    return redirect(url_for("ui.importar"))
 
 
 @ui.post("/importar/scan")

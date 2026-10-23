@@ -37,6 +37,37 @@
 </div>
 
 <div class="cartao" style="margin-top:14px">
+  <h2>Puxar do dispositivo (serial)</h2>
+  <p class="texto-fraco" style="margin-top:0">
+    Baixa os logs direto do cartão SD do ESP32, sem tirar o cartão. Só arquivos de texto
+    (.log, .csv, .txt); arquivo <code>.gz</code> ou binário continua pelo cartão.
+    O que já foi baixado não desce de novo.
+  </p>
+  {% if portas %}
+  <form method="post" action="{{ url_for('ui.importar_puxar') }}" class="filtros">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="campo"><label for="porta">porta</label>
+      <select id="porta" name="porta">
+        {% for p in portas %}
+        <option value="{{ p.porta }}">{{ p.porta }} — {{ p.descricao }}</option>
+        {% endfor %}
+      </select></div>
+    <div class="campo largo"><label for="destino">salvar em</label>
+      <input type="text" id="destino" name="destino" value="{{ destino }}"></div>
+    <div class="campo"><label for="baud">baud</label>
+      <input type="number" id="baud" name="baud" value="115200" step="100"></div>
+    <button type="submit" class="principal">Puxar do dispositivo</button>
+  </form>
+  {% else %}
+  <p class="texto-fraco">
+    Nenhuma porta serial encontrada. Ligue o ESP32 por USB e recarregue esta página —
+    se ele não aparecer, o driver do chip (CP210x ou CH340) pode estar faltando.
+    Também dá para ver pelo terminal: <code>python cli.py portas</code>.
+  </p>
+  {% endif %}
+</div>
+
+<div class="cartao" style="margin-top:14px">
   <h2>Formatos reconhecidos</h2>
   <table>
     <thead><tr><th>formato</th><th>colunas</th><th>origem típica</th><th>observação</th></tr></thead>

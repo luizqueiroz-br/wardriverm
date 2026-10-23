@@ -61,6 +61,11 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Puxar do dispositivo**: `cli.py puxar --porta COM5` (ou o botão em Importar) lista o
+  cartão SD pela serial, baixa só os arquivos novos e importa. `--diagnostico` mostra a
+  resposta crua do firmware, para descobrir o protocolo do seu fork; arquivo binário
+  (`.gz`) continua pelo cartão. Comando de listagem/leitura é configurável em
+  `wardrive/dispositivo.py` (`sd list` / `sd read <arquivo>` por padrão).
 * **No WiGLE**: na ficha de uma rede Wi-Fi, o botão consulta o BSSID na API do WiGLE
   (`/api/v2/network/search?netid=`) com a mesma credencial do upload e mostra quantas
   aparições globais a rede tem, onde, com que canal e criptografia. O resultado fica em
