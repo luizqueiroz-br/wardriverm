@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<detection-run kismet-version="2022.02.0" start-time="Mon Oct 12 10:00:00 2026">
+  <wireless-network number="1" type="infrastructure" first-time="Mon Oct 12 10:00:00 2026" last-time="Mon Oct 12 10:05:00 2026">
+    <SSID element="SSID" time="Mon Oct 12 10:00:00 2026">
+      <ssid cloaked="false" adhoc="false" encryption="wpa2">Loja Teste</ssid>
+      <encryption>WPA2-PSK</encryption>
+    </SSID>
+    <BSSID>02:11:22:33:44:01</BSSID>
+    <manuf>Fabricante Falso</manuf>
+    <channel>6</channel>
+    <freqmhz>2437</freqmhz>
+    <snapshot time="Mon Oct 12 10:00:00 2026">
+      <signal rssi="-61" noise="-95" type="unknown" />
+      <gps-info>
+        <gps-time>Mon Oct 12 10:00:00 2026</gps-time>
+        <gps-lat>10.100100</gps-lat>
+        <gps-lon>20.200200</gps-lon>
+        <gps-alt>600</gps-alt>
+        <gps-fix>3</gps-fix>
+      </gps-info>
+    </snapshot>
+    <snapshot time="Mon Oct 12 10:05:00 2026">
+      <signal rssi="-70" noise="-95" type="unknown" />
+      <gps-info>
+        <gps-time>Mon Oct 12 10:05:00 2026</gps-time>
+        <gps-lat>10.100200</gps-lat>
+        <gps-lon>20.200300</gps-lon>
+        <gps-alt>601</gps-alt>
+        <gps-fix>3</gps-fix>
+      </gps-info>
+    </snapshot>
+  </wireless-network>
+  <wireless-network number="2" type="infrastructure" first-time="Mon Oct 12 10:01:00 2026" last-time="Mon Oct 12 10:01:00 2026">
+    <SSID element="SSID" time="Mon Oct 12 10:01:00 2026">
+      <ssid cloaked="false" adhoc="false">Rede Aberta</ssid>
+      <encryption>None</encryption>
+    </SSID>
+    <BSSID>02:11:22:33:44:02</BSSID>
+    <channel>11</channel>
+    <snapshot time="Mon Oct 12 10:01:00 2026">
+      <signal rssi="-52" />
+      <gps-info>
+        <gps-lat>10.100300</gps-lat>
+        <gps-lon>20.200400</gps-lon>
+      </gps-info>
+    </snapshot>
+  </wireless-network>
+  <wireless-network number="3" type="infrastructure" first-time="Mon Oct 12 10:02:00 2026">
+    <SSID element="SSID" time="Mon Oct 12 10:02:00 2026">
+      <ssid cloaked="true" adhoc="false">escondida</ssid>
+      <encryption>WEP</encryption>
+    </SSID>
+    <BSSID>02:11:22:33:44:03</BSSID>
+    <channel>1</channel>
+  </wireless-network>
+  <wireless-network number="4" type="client" first-time="Mon Oct 12 10:00:00 2026">
+    <BSSID>02:11:22:33:44:99</BSSID>
+  </wireless-network>
+</detection-run>

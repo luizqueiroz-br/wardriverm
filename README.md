@@ -61,6 +61,11 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Kismet e app WiGLE Android**: importa `.netxml` (um registro por snapshot com GPS, a
+  estação `client` fica de fora) e o `wiglewifi.sqlite` do app Android (lido em memória e
+  somente leitura, colunas achadas por nome). Os dois são convertidos para o **formato
+  WiGLE** antes de gravar, então estatísticas, dedupe e exportação seguem iguais — e o
+  CSV que sai continua aceito no WiGLE e no WDGoWars.
 * **Puxar do dispositivo**: `cli.py puxar --porta COM5` (ou o botão em Importar) lista o
   cartão SD pela serial, baixa só os arquivos novos e importa. `--diagnostico` mostra a
   resposta crua do firmware, para descobrir o protocolo do seu fork; arquivo binário

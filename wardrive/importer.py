@@ -11,10 +11,11 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
-from . import categorias, config, db
+from . import categorias, config, db, origens
 from .parser import parse_bytes
 
-IMPORT_EXTENSIONS = {".log", ".csv", ".txt", ".gz", ".nettxt", ".wiglecsv"}
+IMPORT_EXTENSIONS = {".log", ".csv", ".txt", ".gz", ".nettxt", ".wiglecsv",
+                     ".netxml", ".sqlite", ".db"}
 SKIP_NAMES = {"manifest.json", "upload.sh", "upload.ps1"}
 
 
@@ -50,8 +51,17 @@ def import_bytes(conn, name: str, data: bytes, *, source: str = "upload", path: 
     if existing and force:
         delete_file(conn, existing["id"], rebuild=False)
 
-    # confere se é mesmo um CSV WiGLE antes de gravar
+    # confere se é mesmo um CSV WiGLE antes de gravar; Kismet e o SQLite do app
+    # Android são convertidos para o mesmo formato e seguem o caminho comum
     try:
+        origem = origens.detectar(name, data)
+        if origem == "sqlite":
+            if not path:
+                return {"status": "erro", "file": name,
+                        "message": "SQLite do app WiGLE precisa vir de um arquivo (use Importar → arquivos)"}
+            data = origens.sqlite_para_csv(path)
+        elif origem == "netxml":
+            data = origens.netxml_para_csv(data)
         parsed = parse_bytes(data, name)
     except ValueError as exc:
         return {"status": "erro", "file": name, "message": str(exc)}

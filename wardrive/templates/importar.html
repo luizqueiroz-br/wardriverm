@@ -8,10 +8,11 @@
   <div class="cartao">
     <h2>Enviar arquivos do computador</h2>
     <div class="dropzone">Arraste os arquivos (.log, .csv, .gz) aqui ou clique para escolher</div>
-    <input type="file" id="entrada-arquivos" multiple accept=".log,.csv,.txt,.gz,.wiglecsv" hidden>
+    <input type="file" id="entrada-arquivos" multiple accept=".log,.csv,.txt,.gz,.wiglecsv,.netxml,.sqlite,.db" hidden>
     <p class="solta-baixo" style="margin-top:10px">
       Os arquivos são lidos no seu computador e gravados no banco local. Arquivos já importados
-      (mesmo conteúdo e nome) são ignorados automaticamente.
+      (mesmo conteúdo e nome) são ignorados automaticamente. Aceita também
+      <code>.netxml</code> do Kismet e o <code>wiglewifi.sqlite</code> do app Android.
     </p>
   </div>
 
@@ -80,6 +81,12 @@
           <td class="texto-fraco">layout completo, incluindo celular</td></tr>
       <tr><td class="mono">CSV sem pre-header</td><td>variável</td><td>exportações manuais</td>
           <td class="texto-fraco">cabeçalho lido da primeira linha</td></tr>
+      <tr><td class="mono">Kismet (.netxml)</td><td>—</td><td>Kismet no notebook</td>
+          <td class="texto-fraco">um registro por snapshot com GPS; a estação (client) não entra;
+          convertido para o formato WiGLE antes de gravar</td></tr>
+      <tr><td class="mono">wiglewifi.sqlite</td><td>—</td><td>app WiGLE no Android</td>
+          <td class="texto-fraco">lido em memória e somente leitura — o app pode estar aberto;
+          colunas achadas por nome (bssid, ssid, level, latitude…)</td></tr>
     </tbody>
   </table>
   <p class="solta-baixo">

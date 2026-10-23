@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import canais, config, db, importer, mudancas, queries, seguranca, wigle
+from . import canais, config, db, importer, mudancas, origens, queries, seguranca, wigle
 from .jobs import runner
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -184,7 +184,22 @@ def importar_arquivos():
             if not storage or not storage.filename:
                 continue
             data = storage.read()
-            res = importer.import_bytes(conn, Path(storage.filename).name, data, source="upload")
+            # SQLite precisa de caminho (é lido em memória, sem cópia do arquivo morto)
+            caminho = None
+            if origens.detectar(storage.filename, data) == "sqlite":
+                import tempfile
+                from pathlib import Path as _Path
+                temporario = tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite")
+                temporario.write(data)
+                temporario.close()
+                caminho = temporario.name
+            try:
+                res = importer.import_bytes(conn, Path(storage.filename).name, data,
+                                            source="upload", path=caminho)
+            finally:
+                if caminho:
+                    from pathlib import Path as _P
+                    _P(caminho).unlink(missing_ok=True)
             resultados.append(res)
     return jsonify({
         "resultados": resultados,
