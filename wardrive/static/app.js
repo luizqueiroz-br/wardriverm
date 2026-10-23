@@ -798,8 +798,16 @@
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     { maxZoom: 19, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa);
   const camada = L.layerGroup().addTo(mapa);
+  // o mapa nasce antes do layout assentar: sem isso, metade do retângulo fica cinza
+  setTimeout(() => mapa.invalidateSize(), 300);
+  window.addEventListener("resize", () => mapa.invalidateSize());
+  new IntersectionObserver((entradas) => {
+    if (entradas.some((e) => e.isIntersecting)) mapa.invalidateSize();
+  }, { threshold: 0.2 }).observe(alvo);
+  window.aoVivoMapa = mapa;      // útil no console e nos testes de tela
   let tracado = null;
   let ultimo = null;
+  let ajustado = false;
   let fonteSSE = null;
   let pontos = 0;
 
@@ -819,7 +827,10 @@
       pontos += 1;
     }
     kpiPontos.textContent = pontos;
-    if (pontos === lista.length) mapa.setView(ultimo, 17);
+    if (!ajustado && ultimo) {           // enquadra o primeiro ponto, depois respeita o zoom do usuário
+      ajustado = true;
+      mapa.setView(ultimo, 17);
+    }
   }
 
   function pintarEstado(estado) {
@@ -851,6 +862,10 @@
     fonteSSE.addEventListener("fim", () => {
       fonteSSE.close();
       fonteSSE = null;
+      // ao terminar, enquadra o traçado inteiro: o percurso todo é a informação
+      if (tracado && pontos > 2) {
+        try { mapa.fitBounds(tracado.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) {}
+      }
       fetch("/api/ao-vivo/estado").then((r) => r.json()).then(pintarEstado);
     });
     fonteSSE.onerror = () => { /* reconexão automática do EventSource */ };
@@ -865,6 +880,7 @@
       if (!corpo.arquivo) { rotulo.textContent = "informe o arquivo"; return; }
     }
     camada.clearLayers();
+    ajustado = false;
     tracado = null;
     ultimo = null;
     pontos = 0;
