@@ -1,11 +1,14 @@
 """Endpoints JSON: progresso das tarefas, pontos do mapa, importação por upload."""
 from __future__ import annotations
 
+import json
+import time
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 
-from . import canais, config, db, importer, mudancas, origens, queries, seguranca, wigle
+from . import (ao_vivo, canais, config, db, importer, mudancas, origens, queries, seguranca,
+               wigle)
 from .jobs import runner
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -55,6 +58,66 @@ def mudancas_endpoint():
                                   tipo=request.args.get("tipo", "WIFI"),
                                   limite=request.args.get("limite", 200, type=int))
     return jsonify(resultado)
+
+
+@api.post("/ao-vivo/iniciar")
+def ao_vivo_iniciar():
+    """Começa a coleta ao vivo — da porta serial ou de um arquivo (replay)."""
+    dados = request.get_json(silent=True) or request.form
+    arquivo = (dados.get("arquivo") or "").strip()
+    porta = (dados.get("porta") or "").strip()
+    nome = (dados.get("nome") or "").strip() or None
+    if arquivo:
+        from pathlib import Path as _Path
+        caminho = _Path(arquivo)
+        if not caminho.is_file():
+            return jsonify({"erro": f"arquivo não encontrado: {arquivo}"}), 400
+        fonte = ao_vivo.FonteArquivo(caminho)
+    elif porta:
+        from . import dispositivo
+        fonte = ao_vivo.FonteSerial(dispositivo.Porta(porta, request.form.get("baud", 115200, type=int)))
+    else:
+        return jsonify({"erro": "informe a porta serial ou um arquivo de replay"}), 400
+    resultado = ao_vivo.coletor.iniciar(fonte, nome=nome)
+    return jsonify(resultado), (200 if resultado.get("ok") else 409)
+
+
+@api.post("/ao-vivo/parar")
+def ao_vivo_parar():
+    return jsonify(ao_vivo.coletor.parar())
+
+
+@api.get("/ao-vivo/estado")
+def ao_vivo_estado():
+    return jsonify(ao_vivo.coletor.estado_atual())
+
+
+@api.get("/ao-vivo/eventos")
+def ao_vivo_eventos():
+    """SSE: manda os pontos novos a cada segundo, até o cliente desconectar."""
+    desde = request.args.get("desde", 0, type=int)
+    parado_apos = request.args.get("parar_ao_terminar") == "1"
+
+    def gerar():
+        marca = desde
+        vazio = 0
+        while True:
+            novos = ao_vivo.coletor.eventos(marca, limite=300)
+            if novos:
+                marca = novos[-1]["seq"]
+                yield f"data: {json.dumps({'pontos': novos, 'estado': ao_vivo.coletor.estado_atual()})}\n\n"
+                vazio = 0
+            else:
+                vazio += 1
+                if vazio % 5 == 0:              # batimento a cada ~5 s
+                    yield f"data: {json.dumps({'pontos': [], 'estado': ao_vivo.coletor.estado_atual()})}\n\n"
+                if parado_apos and not ao_vivo.coletor.ativo():
+                    yield "event: fim\ndata: {}\n\n"
+                    return
+            time.sleep(1)
+
+    return Response(gerar(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @api.get("/wigle/rede/<mac>")

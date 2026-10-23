@@ -602,6 +602,18 @@ def importar():
                            qualidade=queries.quality_report(conn))
 
 
+@ui.get("/ao-vivo")
+def ao_vivo_page():
+    conn = db.get_db()
+    pastas = config.load_settings()["ward_dirs"]
+    exemplo = ""
+    if pastas:
+        candidatos = sorted(Path(pastas[0]).glob("*.log")) if Path(pastas[0]).is_dir() else []
+        exemplo = str(candidatos[-1]) if candidatos else ""
+    return render_template("ao_vivo.html", portas=dispositivo.portas_disponiveis(),
+                           arquivo_exemplo=exemplo, sessoes=queries.sessions(conn, limit=5))
+
+
 @ui.post("/importar/puxar")
 def importar_puxar():
     porta = (request.form.get("porta") or "").strip()

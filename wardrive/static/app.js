@@ -775,3 +775,128 @@
 
   botao.addEventListener("click", () => consultar(botao.dataset.forcar === "1"));
 })();
+
+/* ---------------------------------------------------------------- ao vivo */
+(() => {
+  const alvo = document.getElementById("mapa-ao-vivo");
+  if (!alvo || typeof L === "undefined") return;
+  const csrf = alvo.dataset.csrf || window.AO_VIVO_CSRF || "";
+  const seletor = document.getElementById("fonte");
+  const campoArquivo = document.getElementById("campo-arquivo");
+  const entradaArquivo = document.getElementById("arquivo");
+  const btnIniciar = document.getElementById("btn-iniciar");
+  const btnParar = document.getElementById("btn-parar");
+  const rotulo = document.getElementById("ao-estado");
+  const kpiObs = document.getElementById("kpi-obs");
+  const kpiRedes = document.getElementById("kpi-redes");
+  const kpiPontos = document.getElementById("kpi-pontos");
+  const kpiSessao = document.getElementById("kpi-sessao");
+
+  // sem preferCanvas: nesta máquina o canvas do Leaflet fica branco depois do zoom
+  const mapa = L.map(alvo).setView([-23.28, -47.29], 13);
+  const rendererSvg = L.svg({ padding: 0.5 });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxZoom: 19, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa);
+  const camada = L.layerGroup().addTo(mapa);
+  let tracado = null;
+  let ultimo = null;
+  let fonteSSE = null;
+  let pontos = 0;
+
+  function pintar(lista) {
+    for (const p of lista) {
+      const cor = p.tipo === "WIFI" ? "#4ad295" : p.tipo === "BLE" ? "#7aa2ff" : "#ffb454";
+      L.circleMarker([p.lat, p.lon], {
+        radius: 4, color: cor, weight: 1, fillColor: cor, fillOpacity: 0.85,
+        renderer: rendererSvg,
+      }).bindPopup(`<b>${p.ssid || "(oculto)"}</b><br>${p.mac}<br>${p.rssi ?? "?"} dBm · canal ${p.canal ?? "?"}`)
+        .addTo(camada);
+      if (ultimo) {
+        const ponto = [[ultimo[0], ultimo[1]], [p.lat, p.lon]];
+        tracado = tracado ? tracado.addLatLng([p.lat, p.lon]) : L.polyline(ponto, { color: "#56a8ff", weight: 3 }).addTo(camada);
+      }
+      ultimo = [p.lat, p.lon];
+      pontos += 1;
+    }
+    kpiPontos.textContent = pontos;
+    if (pontos === lista.length) mapa.setView(ultimo, 17);
+  }
+
+  function pintarEstado(estado) {
+    if (!estado) return;
+    kpiObs.textContent = estado.obs ?? 0;
+    kpiRedes.textContent = estado.redes ?? 0;
+    kpiSessao.textContent = estado.sessao || "—";
+    if (estado.erro) {
+      rotulo.textContent = "erro: " + estado.erro;
+      rotulo.classList.add("texto-alerta");
+    } else {
+      rotulo.textContent = estado.ativo
+        ? `coletando… ${estado.obs} obs`
+        : `parado — ${estado.obs} observação(ões)${estado.ignoradas ? `, ${estado.ignoradas} linha(s) ignorada(s)` : ""}`;
+      rotulo.classList.remove("texto-alerta");
+    }
+    btnIniciar.disabled = !!estado.ativo;
+    btnParar.disabled = !estado.ativo;
+  }
+
+  function escutar(desde) {
+    if (fonteSSE) fonteSSE.close();
+    fonteSSE = new EventSource(`/api/ao-vivo/eventos?desde=${desde}&parar_ao_terminar=1`);
+    fonteSSE.onmessage = (evento) => {
+      const dados = JSON.parse(evento.data);
+      if (dados.pontos && dados.pontos.length) pintar(dados.pontos);
+      pintarEstado(dados.estado);
+    };
+    fonteSSE.addEventListener("fim", () => {
+      fonteSSE.close();
+      fonteSSE = null;
+      fetch("/api/ao-vivo/estado").then((r) => r.json()).then(pintarEstado);
+    });
+    fonteSSE.onerror = () => { /* reconexão automática do EventSource */ };
+  }
+
+  function iniciar() {
+    const valor = seletor.value || "replay";
+    const corpo = { csrf_token: csrf };
+    if (valor.startsWith("serial:")) corpo.porta = valor.slice(7);
+    else {
+      corpo.arquivo = entradaArquivo.value.trim();
+      if (!corpo.arquivo) { rotulo.textContent = "informe o arquivo"; return; }
+    }
+    camada.clearLayers();
+    tracado = null;
+    ultimo = null;
+    pontos = 0;
+    kpiPontos.textContent = "0";
+    rotulo.textContent = "abrindo…";
+    fetch("/api/ao-vivo/iniciar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: JSON.stringify(corpo),
+    }).then((r) => r.json()).then((dados) => {
+      if (dados.erro) { rotulo.textContent = dados.erro; return; }
+      kpiSessao.textContent = dados.sessao;
+      btnIniciar.disabled = true;
+      btnParar.disabled = false;
+      escutar(0);
+    }).catch((erro) => { rotulo.textContent = "falhou: " + erro; });
+  }
+
+  seletor?.addEventListener("change", () => {
+    campoArquivo.hidden = !seletor.value.startsWith("replay");
+  });
+  btnIniciar?.addEventListener("click", iniciar);
+  btnParar?.addEventListener("click", () => {
+    fetch("/api/ao-vivo/parar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+      body: "{}",
+    }).then((r) => r.json()).then(pintarEstado);
+  });
+
+  fetch("/api/ao-vivo/estado").then((r) => r.json()).then((estado) => {
+    pintarEstado(estado);
+    if (estado.ativo) escutar(estado.sequencia || 0);
+  });
+})();

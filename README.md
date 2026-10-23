@@ -61,6 +61,10 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Ao vivo**: página **Ao vivo** lê a serial num worker próprio (ou reproduz um arquivo, para
+  testar sem dispositivo), grava em lotes de 50 linhas / 2 s e manda os pontos para o mapa por
+  **SSE** — o mapa pinta enquanto você anda. Dedupe por `mac + first_seen`, queda da fonte vira
+  mensagem de erro sem derrubar o serviço, e a sessão já nasce no acervo (`source = ao-vivo`).
 * **Kismet e app WiGLE Android**: importa `.netxml` (um registro por snapshot com GPS, a
   estação `client` fica de fora) e o `wiglewifi.sqlite` do app Android (lido em memória e
   somente leitura, colunas achadas por nome). Os dois são convertidos para o **formato

@@ -358,6 +358,48 @@ def map_bad_time(lineno: int, value: str) -> tuple[int, str]:
     return (lineno, f"data/hora inválida: {value[:40] or '(vazio)'}")
 
 
+def converter_linha(row: list[str], cmap: dict[str, int]) -> dict | None:
+    """Uma linha já fatiada → registro pronto para o banco (ou None se inválida).
+
+    Usado pelo modo ao vivo, que recebe uma linha por vez pela serial. As regras
+    são as mesmas de `parse_bytes` — há um teste que compara as duas saídas para
+    impedir que elas divirjam.
+    """
+    mac = _cell(row, cmap.get("mac")).upper()
+    if not mac or not (MAC_RE.match(mac) or CELL_KEY_RE.match(mac)):
+        return None
+    auth_mode = _cell(row, cmap.get("auth_mode"))
+    type_ = normalize_type(_cell(row, cmap.get("type")), auth_mode)
+    seen = normalize_time(_cell(row, cmap.get("first_seen")))
+    if not seen:
+        return None
+    channel = to_int(_cell(row, cmap.get("channel")))
+    frequency = to_int(_cell(row, cmap.get("frequency")))
+    if not frequency and type_ in WIFI_TYPES:
+        frequency = freq_from_channel(channel, type_)
+    lat = to_float(_cell(row, cmap.get("lat")))
+    lon = to_float(_cell(row, cmap.get("lon")))
+    gps_ok = (lat is not None and lon is not None
+              and abs(lat) <= 90 and abs(lon) <= 180 and not (lat == 0 and lon == 0))
+    return {
+        "mac": mac,
+        "ssid": _cell(row, cmap.get("ssid")),
+        "auth_mode": auth_mode,
+        "first_seen": seen,
+        "channel": channel,
+        "frequency": frequency,
+        "rssi": to_int(_cell(row, cmap.get("rssi"))),
+        "lat": lat,
+        "lon": lon,
+        "altitude": to_float(_cell(row, cmap.get("altitude"))),
+        "accuracy": to_float(_cell(row, cmap.get("accuracy"))),
+        "rcois": _cell(row, cmap.get("rcois")),
+        "mfgr_id": _cell(row, cmap.get("mfgr_id")),
+        "type": type_,
+        "has_gps": 1 if gps_ok else 0,
+    }
+
+
 def parse_file(path) -> dict:
     from pathlib import Path
 

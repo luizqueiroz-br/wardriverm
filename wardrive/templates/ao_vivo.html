@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}Ao vivo{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block conteudo %}
+<h1>Coleta ao vivo</h1>
+<p class="texto-fraco" style="max-width:900px">
+  O mapa pinta enquanto você anda. A leitura da serial acontece num <strong>worker próprio</strong>
+  (nunca no processo da web), grava em lotes curtos e manda os pontos para esta tela por
+  <strong>SSE</strong> — servidor fala, navegador escuta.
+</p>
+
+<div class="cartao" style="margin-top:12px">
+  <div class="linha-botoes" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
+    <div class="campo"><label for="fonte">fonte</label>
+      <select id="fonte">
+        {% for p in portas %}
+        <option value="serial:{{ p.porta }}">{{ p.porta }} — {{ p.descricao }}</option>
+        {% endfor %}
+        <option value="replay" {{ 'selected' if not portas }}>arquivo (replay de um log)</option>
+      </select></div>
+    <div class="campo largo" id="campo-arquivo" {{ 'hidden' if portas }}>
+      <label for="arquivo">arquivo para reproduzir</label>
+      <input type="text" id="arquivo" value="{{ arquivo_exemplo }}">
+    </div>
+    <button type="button" class="principal" id="btn-iniciar">começar</button>
+    <button type="button" id="btn-parar" disabled>parar</button>
+    <span class="texto-fraco" id="ao-estado">parado</span>
+  </div>
+  <p class="texto-fraco solta-baixo" style="margin-top:10px">
+    O replay serve para ver o modo funcionando sem o dispositivo: ele lê o arquivo linha a linha.
+    Numa coleta real, o ESP32 precisa estar mandando <strong>linhas CSV no formato WiGLE</strong>
+    pela serial — se o seu firmware só imprime lista legível, o modo ao vivo ainda não se aplica.
+  </p>
+</div>
+
+<div class="grade c4" style="margin-top:12px">
+  <div class="cartao compacto"><div class="titulo-kpi">Observações</div>
+    <div class="valor" id="kpi-obs">0</div><div class="sub">desde o início da coleta</div></div>
+  <div class="cartao compacto"><div class="titulo-kpi">Redes</div>
+    <div class="valor" id="kpi-redes">0</div><div class="sub">distintas no ponto</div></div>
+  <div class="cartao compacto"><div class="titulo-kpi">Pontos no mapa</div>
+    <div class="valor" id="kpi-pontos">0</div><div class="sub">com GPS</div></div>
+  <div class="cartao compacto"><div class="titulo-kpi">Sessão</div>
+    <div class="valor mono" id="kpi-sessao" style="font-size:13px">—</div>
+    <div class="sub">entra no acervo ao terminar</div></div>
+</div>
+
+<div id="mapa-ao-vivo" data-csrf="{{ csrf_token }}"
+     style="margin-top:12px;height:520px;border-radius:10px"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.AO_VIVO_CSRF = "{{ csrf_token }}";
+</script>
+{% endblock %}
