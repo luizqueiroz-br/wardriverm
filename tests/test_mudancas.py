@@ -107,6 +107,27 @@ class ComparacaoTests(unittest.TestCase):
         self.assertLess(janelas["de_a"], janelas["ate_a"])
         self.assertLess(janelas["de_b"], janelas["ate_b"])
 
+    def test_presets_de_periodo(self):
+        """O seletor escolhe a ideia; as datas saem dele."""
+        um = mudancas.janelas_por_preset(self.conn, "1d")
+        self.assertEqual(um["de_a"], um["ate_a"])          # 1 dia de cada lado
+        semana = mudancas.janelas_por_preset(self.conn, "7d")
+        self.assertEqual(semana["ate_b"], "2026-10-18")     # última coleta do acervo
+        self.assertLessEqual(semana["ate_a"], semana["de_b"])
+
+    def test_preset_personalizado_respeita_as_datas(self):
+        janelas = mudancas.janelas_por_preset(self.conn, "personalizado", de_a="2026-10-01",
+                                              ate_a="2026-10-02", de_b="2026-10-03",
+                                              ate_b="2026-10-04")
+        self.assertEqual(janelas["de_a"], "2026-10-01")
+        self.assertEqual(janelas["ate_b"], "2026-10-04")
+
+    def test_preset_tudo_divide_o_acervo_ao_meio(self):
+        janelas = mudancas.janelas_por_preset(self.conn, "tudo")
+        self.assertEqual(janelas["de_a"], "2026-10-14")
+        self.assertEqual(janelas["ate_b"], "2026-10-18")
+        self.assertLess(janelas["ate_a"], janelas["de_b"])
+
 
 if __name__ == "__main__":
     unittest.main()

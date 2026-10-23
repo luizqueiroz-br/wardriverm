@@ -181,11 +181,19 @@ def rede_detalhe(mac: str):
 # o que mudou entre passagens
 # --------------------------------------------------------------------------- #
 def _args_mudancas() -> dict:
-    """Janelas e área do formulário, com padrão = últimos dias do acervo."""
+    """Período e área do formulário; o padrão é "2 dias × 2 anteriores"."""
     conn = db.get_db()
-    padrao = mudancas.janelas_sugeridas(conn)
-    args = {chave: request.args.get(chave) or padrao[chave]
-            for chave in ("de_a", "ate_a", "de_b", "ate_b")}
+    presets = {chave: texto for chave, (texto, _dias) in mudancas.PRESETS.items()}
+    presets["tudo"] = "todo o acervo, dividido ao meio"
+    presets["personalizado"] = "personalizado (escolher as datas)"
+    periodo = request.args.get("periodo") or mudancas.PRESET_PADRAO
+    if periodo not in presets:
+        periodo = mudancas.PRESET_PADRAO
+    janelas = mudancas.janelas_por_preset(
+        conn, periodo,
+        de_a=request.args.get("de_a", ""), ate_a=request.args.get("ate_a", ""),
+        de_b=request.args.get("de_b", ""), ate_b=request.args.get("ate_b", ""))
+    args = {"periodo": periodo, "presets": presets, **janelas}
     args["tipo"] = request.args.get("tipo") or "WIFI"
     args["lat"] = request.args.get("lat", "").strip()
     args["lon"] = request.args.get("lon", "").strip()

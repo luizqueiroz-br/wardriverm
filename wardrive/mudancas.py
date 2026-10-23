@@ -155,3 +155,37 @@ def janelas_sugeridas(conn, dias: int = 2) -> dict[str, str]:
         "de_a": inicio_a.isoformat(), "ate_a": fim_a.isoformat(),
         "de_b": inicio_b.isoformat(), "ate_b": fim.isoformat(),
     }
+
+
+#: o que aparece no seletor de período — o usuário escolhe a ideia, não a data
+PRESETS: dict[str, tuple[str, int]] = {
+    "1d": ("último dia × dia anterior", 1),
+    "2d": ("últimos 2 dias × 2 anteriores", 2),
+    "7d": ("última semana × semana anterior", 7),
+}
+PRESET_PADRAO = "2d"
+
+
+def janelas_por_preset(conn, preset: str, *, de_a: str = "", ate_a: str = "",
+                       de_b: str = "", ate_b: str = "") -> dict[str, str]:
+    """Resolve o período escolhido por nome. `personalizado` usa as datas do formulário.
+
+    O "último dia" se conta a partir da **última coleta do acervo**, não do relógio:
+    quem não saiu hoje não quer comparar hoje (daria zero de um lado).
+    """
+    if preset == "personalizado" and all((de_a, ate_a, de_b, ate_b)):
+        return {"de_a": de_a, "ate_a": ate_a, "de_b": de_b, "ate_b": ate_b}
+
+    if preset == "tudo":
+        from datetime import date, timedelta
+
+        inicio, fim = periodo_disponivel(conn)
+        if not inicio or not fim:
+            return janelas_sugeridas(conn)
+        primeiro, ultimo = date.fromisoformat(inicio), date.fromisoformat(fim)
+        meio = primeiro + (ultimo - primeiro) / 2
+        return {"de_a": primeiro.isoformat(), "ate_a": meio.isoformat(),
+                "de_b": (meio + timedelta(days=1)).isoformat(), "ate_b": ultimo.isoformat()}
+
+    dias = PRESETS.get(preset, PRESETS[PRESET_PADRAO])[1]
+    return janelas_sugeridas(conn, dias)

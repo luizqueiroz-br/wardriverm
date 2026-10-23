@@ -59,6 +59,14 @@ def create_app(settings_overrides: dict | None = None) -> Flask:
             return "—"
         return f"{valor:.1f}".replace(".", ",")
 
+    @app.template_filter("data_curta")
+    def _data_curta(valor):
+        """'2026-10-15' → '15/10' (o usuário pensa em dia/mês, não em ISO)."""
+        texto = (valor or "")[:10]
+        if len(texto) == 10 and texto[4] == "-" and texto[7] == "-":
+            return f"{texto[8:10]}/{texto[5:7]}"
+        return texto
+
     from .views import ui
     from .api import api
 

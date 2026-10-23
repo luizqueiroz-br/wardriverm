@@ -1044,3 +1044,13 @@
   }
   desenharPercurso();
 })();
+
+/* se escolher "personalizado", abre as datas sem o usuário ter que adivinhar */
+(() => {
+  const seletor = document.getElementById("periodo");
+  const avancado = document.querySelector("details.avancado");
+  if (!seletor || !avancado) return;
+  seletor.addEventListener("change", () => {
+    if (seletor.value === "personalizado") avancado.open = true;
+  });
+})();

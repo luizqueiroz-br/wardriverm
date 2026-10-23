@@ -247,3 +247,13 @@ table .tabela-interna tr + tr td { border-top: 1px solid var(--linha); }
   border: 1px solid color-mix(in srgb, var(--alerta) 45%, transparent);
 }
 .aviso-suspeita a { color: var(--alerta); }
+
+/* filtros com o avançado recolhido */
+details.avancado { flex-basis: 100%; margin-top: 8px; }
+details.avancado > summary {
+  cursor: pointer; color: var(--fraco); font-size: 12px; padding: 4px 0;
+  list-style: none;
+}
+details.avancado > summary::before { content: "▸ "; }
+details.avancado[open] > summary::before { content: "▾ "; }
+details.avancado > summary:hover { color: var(--texto); }
