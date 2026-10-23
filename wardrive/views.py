@@ -182,11 +182,15 @@ def seguranca_page():
     conn = db.get_db()
     args = _page_args()
     celulas = seguranca.por_celula(conn, de=args["de"], ate=args["ate"], limite=300)
+    fabrica = seguranca.fabrica(conn, limite=30)
+    # o KPI precisa do total de redes com nome de fábrica, não só das 30 mostradas
+    total_fabrica = sum(f["redes"] for f in seguranca.fabrica(conn, limite=100000))
     return render_template("seguranca.html", args=args,
                            resumo=seguranca.resumo(conn),
                            riscos=seguranca.RISCO,
-                           celulas=celulas[:60],
-                           fabrica=seguranca.fabrica(conn, limite=60))
+                           total_fabrica=total_fabrica,
+                           celulas=celulas[:25],
+                           fabrica=fabrica)
 
 
 @ui.get("/seguranca.csv")

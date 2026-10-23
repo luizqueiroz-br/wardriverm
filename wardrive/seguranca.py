@@ -164,19 +164,24 @@ def por_celula(conn, *, file_ids=None, de: str = "", ate: str = "",
         chave = (linha["lat"], linha["lon"])
         celula = celulas.setdefault(chave, {"lat": linha["lat"], "lon": linha["lon"],
                                             "redes": 0, "fracas": 0, "obs": 0,
-                                            "riscos": set()})
+                                            "abertas": 0, "wep": 0, "riscos": set()})
         risco = risco_de(linha["auth"])
         celula["redes"] += 1
         celula["obs"] += linha["obs"]
         celula["riscos"].add(risco)
         if risco in RISCOS_FRACOS:
             celula["fracas"] += 1
+        if risco == "aberta":
+            celula["abertas"] += 1
+        elif risco == "wep":
+            celula["wep"] += 1
     saida = []
     for celula in celulas.values():
         pior = pior_risco(celula["riscos"])
         saida.append({
             "lat": celula["lat"], "lon": celula["lon"], "redes": celula["redes"],
-            "fracas": celula["fracas"], "obs": celula["obs"], "pior": pior,
+            "fracas": celula["fracas"], "abertas": celula["abertas"], "wep": celula["wep"],
+            "obs": celula["obs"], "pior": pior,
             "pct_fracas": round(100 * celula["fracas"] / celula["redes"], 1),
         })
     saida.sort(key=lambda c: (-c["fracas"], -c["pct_fracas"], -c["redes"]))
@@ -221,10 +226,11 @@ def mascarar_mac(mac: str | None) -> str:
 def csv_ranking(celulas: list[dict], mascarar: bool = False) -> bytes:
     buffer = io.StringIO()
     escritor = csv.writer(buffer, lineterminator="\r\n")
-    escritor.writerow(["latitude", "longitude", "redes_wifi", "redes_fracas",
-                       "pct_fracas", "pior_risco", "observacoes"])
+    escritor.writerow(["latitude", "longitude", "redes_wifi", "abertas", "wep",
+                       "redes_fracas", "pct_fracas", "pior_risco", "observacoes"])
     for c in celulas:
-        escritor.writerow([c["lat"], c["lon"], c["redes"], c["fracas"], c["pct_fracas"],
+        escritor.writerow([c["lat"], c["lon"], c["redes"], c["abertas"], c["wep"],
+                           c["fracas"], c["pct_fracas"],
                            RISCO[c["pior"]]["rotulo"], c["obs"]])
     return buffer.getvalue().encode("utf-8")
 

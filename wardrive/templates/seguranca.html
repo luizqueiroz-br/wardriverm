@@ -30,7 +30,7 @@
   </div>
   <div class="cartao compacto">
     <div class="titulo-kpi">SSID de fábrica</div>
-    <div class="valor">{{ fabrica | sum(attribute='redes') }}</div>
+    <div class="valor">{{ total_fabrica }}</div>
     <div class="sub">nomes que saem do roteador como veio</div>
   </div>
 </div>
@@ -46,14 +46,15 @@
   {% if celulas %}
   <div class="tabela-rolagem">
     <table>
-      <thead><tr><th>célula</th><th class="num">redes Wi-Fi</th><th class="num">fracas</th>
-                 <th class="num">% fracas</th><th>pior risco</th><th></th></tr></thead>
+      <thead><tr><th>célula</th><th class="num">redes Wi-Fi</th><th class="num">abertas</th>
+                 <th class="num">WEP</th><th class="num">% fracas</th><th>pior risco</th><th></th></tr></thead>
       <tbody>
         {% for c in celulas %}
         <tr>
           <td class="mono">{{ '%.5f'|format(c.lat) }}, {{ '%.5f'|format(c.lon) }}</td>
           <td class="num">{{ c.redes }}</td>
-          <td class="num">{{ c.fracas }}</td>
+          <td class="num texto-alerta">{{ c.abertas or '' }}</td>
+          <td class="num">{{ c.wep or '' }}</td>
           <td class="num">{{ c.pct_fracas | pct }}</td>
           <td><span class="etiqueta risco" style="--cor: {{ riscos[c.pior].cor }}">{{ riscos[c.pior].rotulo }}</span></td>
           <td><a class="botao mini" href="{{ url_for('ui.mapa') }}?lat={{ c.lat }}&lon={{ c.lon }}">mapa</a></td>
