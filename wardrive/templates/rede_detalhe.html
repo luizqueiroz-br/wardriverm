@@ -48,6 +48,15 @@
       <span class="texto-fraco">quem está no ar em volta, e qual canal usar</span>
     </p>
     {% endif %}
+    {% if suspeitas %}
+    <div class="aviso-suspeita">
+      <strong>Indício de SSID duplicado.</strong>
+      O mesmo nome desta rede foi ouvido, na mesma quadra, em outra placa de rede
+      (fabricante diferente, sinal parecido). Não é prova de ataque — vizinho com o
+      mesmo nome e repetidor de outra marca explicam parte dos casos.
+      <a href="{{ url_for('ui.suspeitos_page') }}">ver os indícios</a>
+    </div>
+    {% endif %}
   </div>
   <div class="cartao">
     <h2>Resumo para exportação</h2>

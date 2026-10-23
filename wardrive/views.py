@@ -10,7 +10,7 @@ from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 
 from . import (categorias, config, db, exporter, importer, mudancas, privacidade, queries,
-               seguranca, uploaders, upload_service)
+               seguranca, suspeitos, uploaders, upload_service)
 from .jobs import runner
 
 ui = Blueprint("ui", __name__)
@@ -171,6 +171,9 @@ def rede_detalhe(mac: str):
     dados = queries.network_detail(conn, mac.upper())
     if not dados:
         abort(404)
+    # indício de SSID duplicado (rede do mesmo nome anunciada por outra marca)
+    dados["suspeitas"] = suspeitos.para_rede(conn, mac.upper()) if dados["network"]["type"] == "WIFI" else []
+    dados["seguranca_risco"] = seguranca.risco_de
     return render_template("rede_detalhe.html", **dados)
 
 
@@ -198,6 +201,16 @@ def _area_dos_args(args: dict) -> dict | None:
                 "raio_m": max(20, min(5000, int(float(args["raio_m"]))))}
     except ValueError:
         return None
+
+
+@ui.get("/suspeitos")
+def suspeitos_page():
+    conn = db.get_db()
+    return render_template("suspeitos.html",
+                           r=suspeitos.detectar(conn, limite=30),
+                           niveis=suspeitos.NIVEIS,
+                           riscos=seguranca.RISCO,
+                           seguranca_risco=seguranca.risco_de)
 
 
 @ui.get("/mudancas")

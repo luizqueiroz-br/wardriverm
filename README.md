@@ -61,6 +61,12 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Suspeitos (SSID duplicado)**: o mesmo nome anunciado por placas de **fabricantes
+  diferentes** na mesma célula de ~100 m, com sinal parecido — indício de *evil twin*.
+  Ficam de fora o mesmo OUI (mesh e 2,4 + 5 GHz da mesma caixa), mais de 4 BSSIDs na
+  célula (hotel) e MAC aleatório (hotspot de celular). Cada achado mostra os BSSIDs, o
+  sinal, o canal, a hora e o grau do indício; a ficha da rede avisa quando ela aparece
+  num par.
 * **O que mudou**: página **Mudanças** compara duas janelas de tempo (e opcionalmente um
   raio) e devolve três listas — **novas**, **sumiram** e **mudaram** (mesmo MAC com outro
   SSID ou outra segurança, com as duas mudanças separadas), cada linha com atalho para o

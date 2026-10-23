@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block titulo %}Suspeitos{% endblock %}
+
+{% block conteudo %}
+<h1>SSID duplicado na mesma quadra</h1>
+<p class="texto-fraco" style="max-width:920px">
+  O mesmo nome de rede anunciado por <strong>placas de rede de fabricantes diferentes</strong> na
+  mesma célula de ~100 m, com sinal parecido. É o indício clássico de <em>evil twin</em> (alguém
+  sobe uma rede com o nome da sua) — mas também acontece com vizinho que copiou o nome, com
+  repetidor de outra marca e com rede corporativa. Por isso isto é <strong>indício</strong>, não
+  acusação: cada linha mostra o que foi ouvido, quando e com que força.
+</p>
+<p class="texto-fraco" style="max-width:920px">
+  Ficam de fora os casos que explicam sozinhos: mesmo fabricante (a mesma caixa em 2,4 e 5 GHz,
+  ou malha), mais de 4 BSSIDs na célula (hotel, não clone) e <strong>MAC aleatório</strong> —
+  celular com hotspot pessoal troca de endereço a cada vez e repete o mesmo nome.
+</p>
+
+<div class="grade c4" style="margin-top:14px">
+  <div class="cartao compacto kpi-alerta">
+    <div class="titulo-kpi">Indício forte</div>
+    <div class="valor">{{ r.por_nivel.forte }}</div>
+    <div class="sub">mesmo canal, sinal quase igual, fabricante diferente</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Indício médio</div>
+    <div class="valor">{{ r.por_nivel.medio }}</div>
+    <div class="sub">dois critérios a menos</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Indício fraco</div>
+    <div class="valor">{{ r.por_nivel.fraco }}</div>
+    <div class="sub">o mínimo para entrar na lista</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Total</div>
+    <div class="valor">{{ r.total }}</div>
+    <div class="sub">células com SSID repetido por outra marca</div>
+  </div>
+</div>
+
+{% if r.itens %}
+<div class="cartao" style="margin-top:14px">
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>nome</th><th>célula</th><th>indício</th><th>BSSIDs</th><th></th></tr></thead>
+      <tbody>
+        {% for item in r.itens %}
+        <tr>
+          <td>
+            {{ item.ssid }}
+            {% if item.provedor %}<div class="texto-fraco">nome de fábrica: {{ item.provedor }}</div>{% endif %}
+          </td>
+          <td class="mono texto-fraco">{{ '%.5f'|format(item.lat) }}, {{ '%.5f'|format(item.lon) }}</td>
+          <td>
+            <span class="etiqueta risco" style="--cor: {{ '#ff5252' if item.nivel == 'forte' else '#ffd166' if item.nivel == 'medio' else '#6b7688' }}">
+              {{ niveis[item.nivel] }}
+            </span>
+            <div class="texto-fraco" style="font-size:11px">{{ item.motivos | join(' · ') }}</div>
+          </td>
+          <td colspan="2" style="padding:0">
+            <table class="tabela-interna">
+              <tbody>
+                {% for b in item.bssids %}
+                <tr>
+                  <td class="mono">{{ b.mac }}</td>
+                  <td class="num">{{ b.rssi }} dBm</td>
+                  <td class="num">canal {{ b.canal }}</td>
+                  <td><span class="etiqueta risco" style="--cor: {{ riscos[seguranca_risco(b.auth)].cor }}">{{ b.auth or '?' }}</span></td>
+                  <td class="num texto-fraco">{{ b.obs }}×</td>
+                  <td class="texto-fraco">{{ (b.primeira or '')[5:16] }}</td>
+                  <td><a class="botao mini" href="{{ url_for('ui.mapa', rede=b.mac) }}">mapa</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if r.total > r.itens|length %}
+  <p class="texto-fraco">mostrando os {{ r.itens|length }} primeiros de {{ r.total }}.</p>
+  {% endif %}
+</div>
+{% else %}
+<div class="cartao" style="margin-top:14px">
+  <p class="texto-fraco" style="margin:0">Nenhum SSID repetido por fabricantes diferentes no acervo.</p>
+</div>
+{% endif %}
+{% endblock %}
