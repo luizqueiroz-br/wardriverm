@@ -61,6 +61,10 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **O que mudou**: página **Mudanças** compara duas janelas de tempo (e opcionalmente um
+  raio) e devolve três listas — **novas**, **sumiram** e **mudaram** (mesmo MAC com outro
+  SSID ou outra segurança, com as duas mudanças separadas), cada linha com atalho para o
+  mapa. Avisa quando as janelas têm volumes muito diferentes, porque aí "novas" infla.
 * **Qual canal usar**: em Config, informe o SSID/MAC da sua rede (ou a coordenada) e um
   raio; o sistema soma a **energia** dos vizinhos por canal — um AP a −40 dBm pesa muito
   mais que um a −75, e canal vizinho (4, 5, 8…) também invade — e ranqueia os candidatos:

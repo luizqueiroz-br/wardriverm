@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import canais, config, db, importer, queries, seguranca
+from . import canais, config, db, importer, mudancas, queries, seguranca
 from .jobs import runner
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -29,6 +29,32 @@ def job_detail(job_id: str):
 def resumo():
     conn = db.get_db()
     return jsonify(queries.overview(conn))
+
+
+@api.get("/mudancas")
+def mudancas_endpoint():
+    """Diferença entre duas janelas: novas, sumidas e mudadas (mesma API da tela)."""
+    conn = db.get_db()
+    de_a = request.args.get("de_a", "")
+    ate_a = request.args.get("ate_a", "")
+    de_b = request.args.get("de_b", "")
+    ate_b = request.args.get("ate_b", "")
+    if not all((de_a, ate_a, de_b, ate_b)):
+        padrao = mudancas.janelas_sugeridas(conn)
+        de_a = de_a or padrao["de_a"]
+        ate_a = ate_a or padrao["ate_a"]
+        de_b = de_b or padrao["de_b"]
+        ate_b = ate_b or padrao["ate_b"]
+    area = None
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if lat is not None and lon is not None:
+        area = {"lat": lat, "lon": lon,
+                "raio_m": max(20, min(5000, request.args.get("raio_m", 200, type=int)))}
+    resultado = mudancas.comparar(conn, de_a, ate_a, de_b, ate_b, area=area,
+                                  tipo=request.args.get("tipo", "WIFI"),
+                                  limite=request.args.get("limite", 200, type=int))
+    return jsonify(resultado)
 
 
 @api.get("/canais")

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block titulo %}O que mudou{% endblock %}
+
+{% block conteudo %}
+<h1>O que mudou na rua</h1>
+<p class="texto-fraco" style="max-width:900px">
+  Duas janelas de tempo, a mesma área. O que apareceu, o que sumiu e o que <strong>mudou de
+  identidade</strong> — mesmo MAC com outro SSID (reconfiguração ou aparelho trocado) ou com
+  outra segurança. Período no acervo: {{ periodo[0] }} a {{ periodo[1] }} (horário local de quem coletou).
+</p>
+
+<form method="get" action="{{ url_for('ui.mudancas_page') }}" class="cartao filtros" style="margin-top:12px">
+  <div class="campo"><label for="de_a">antes — de</label>
+    <input type="date" id="de_a" name="de_a" value="{{ args.de_a }}"></div>
+  <div class="campo"><label for="ate_a">antes — até</label>
+    <input type="date" id="ate_a" name="ate_a" value="{{ args.ate_a }}"></div>
+  <div class="campo"><label for="de_b">agora — de</label>
+    <input type="date" id="de_b" name="de_b" value="{{ args.de_b }}"></div>
+  <div class="campo"><label for="ate_b">agora — até</label>
+    <input type="date" id="ate_b" name="ate_b" value="{{ args.ate_b }}"></div>
+  <div class="campo"><label for="tipo">tipo</label>
+    <select id="tipo" name="tipo">
+      <option value="WIFI" {{ 'selected' if args.tipo == 'WIFI' }}>Wi-Fi</option>
+      <option value="BLE" {{ 'selected' if args.tipo == 'BLE' }}>BLE</option>
+      <option value="all" {{ 'selected' if args.tipo == 'all' }}>todos</option>
+    </select></div>
+  <div class="campo"><label for="lat">área: latitude</label>
+    <input type="number" id="lat" name="lat" step="any" value="{{ args.lat }}" placeholder="opcional"></div>
+  <div class="campo"><label for="lon">longitude</label>
+    <input type="number" id="lon" name="lon" step="any" value="{{ args.lon }}" placeholder="opcional"></div>
+  <div class="campo"><label for="raio_m">raio (m)</label>
+    <input type="number" id="raio_m" name="raio_m" value="{{ args.raio_m }}" min="20" max="5000" step="10"></div>
+  <button type="submit">comparar</button>
+</form>
+
+<div class="grade c4" style="margin-top:14px">
+  <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">Novas</div>
+    <div class="valor">{{ r.novas_total }}</div>
+    <div class="sub">não estavam na janela de antes</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Sumiram</div>
+    <div class="valor">{{ r.sumiram_total }}</div>
+    <div class="sub">estavam antes e não voltaram</div>
+  </div>
+  <div class="cartao compacto kpi-alerta">
+    <div class="titulo-kpi">Mudaram</div>
+    <div class="valor">{{ r.mudaram_total }}</div>
+    <div class="sub">mesmo MAC, outro SSID ou outra segurança</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">Comuns</div>
+    <div class="valor">{{ r.comuns }}</div>
+    <div class="sub">{{ r.janelas.antes.redes }} redes antes · {{ r.janelas.agora.redes }} agora</div>
+  </div>
+</div>
+
+{% if r.janelas.agora.redes > 0 and r.janelas.antes.redes > 0 and
+      (r.janelas.agora.redes > 2 * r.janelas.antes.redes or r.janelas.antes.redes > 2 * r.janelas.agora.redes) %}
+<p class="texto-fraco" style="margin-top:10px">
+  As duas janelas têm tamanhos muito diferentes ({{ r.janelas.antes.redes }} × {{ r.janelas.agora.redes }} redes).
+  Uma janela com mais coleta sempre mostra mais “novas” — compare períodos com volume parecido
+  para o número significar alguma coisa.
+</p>
+{% endif %}
+
+{% if r.mudaram %}
+<div class="cartao" style="margin-top:14px">
+  <h2>Mudaram de identidade <span class="texto-fraco">({{ r.mudaram_total }})</span></h2>
+  <p class="texto-fraco" style="margin-top:0">
+    Mesma placa de rede, nome ou segurança diferente entre as duas janelas.
+  </p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>MAC</th><th>SSID</th><th>segurança</th><th>o que mudou</th>
+                 <th class="num">obs</th><th></th></tr></thead>
+      <tbody>
+        {% for m in r.mudaram %}
+        <tr>
+          <td class="mono">{{ m.mac }}</td>
+          <td>
+            <span class="texto-fraco">{{ m.ssid_antes or '(oculto)' }}</span>
+            → {{ m.ssid_agora or '(oculto)' }}
+          </td>
+          <td>
+            {% if m.mudou_auth %}
+              <span class="etiqueta risco" style="--cor: {{ riscos[m.risco_antes].cor }}">{{ m.auth_antes or '—' }}</span>
+              →
+              <span class="etiqueta risco" style="--cor: {{ riscos[m.risco_agora].cor }}">{{ m.auth_agora or '—' }}</span>
+            {% else %}
+              <span class="texto-fraco">{{ m.auth_agora or '—' }} (igual)</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if m.mudou_ssid %}<span class="etiqueta">trocou o nome</span>{% endif %}
+            {% if m.mudou_auth %}<span class="etiqueta">trocou a segurança</span>{% endif %}
+          </td>
+          <td class="num">{{ m.obs_antes }} → {{ m.obs_agora }}</td>
+          <td>{% if m.lat is not none %}
+            <a class="botao mini" href="{{ url_for('ui.mapa', lat=m.lat, lon=m.lon) }}">mapa</a>
+          {% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="grade c2" style="margin-top:14px">
+  <div class="cartao">
+    <h2>Novas <span class="texto-fraco">({{ r.novas_total }})</span></h2>
+    {% if r.novas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>rede</th><th class="num">obs</th><th>primeira vez</th><th></th></tr></thead>
+        <tbody>
+          {% for n in r.novas %}
+          <tr>
+            <td>{{ n.ssid or '(oculto)' }}<div class="texto-fraco mono">{{ n.mac }}</div></td>
+            <td class="num">{{ n.obs }}</td>
+            <td class="texto-fraco">{{ (n.primeiro or '')[5:16] }}</td>
+            <td>{% if n.lat is not none %}
+              <a class="botao mini" href="{{ url_for('ui.mapa', rede=n.mac) }}">mapa</a>
+            {% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if r.novas_total > r.novas|length %}<p class="texto-fraco">mostrando as {{ r.novas|length }} com mais observações.</p>{% endif %}
+    {% else %}<p class="texto-fraco">Nada novo na área e no período.</p>{% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Sumiram <span class="texto-fraco">({{ r.sumiram_total }})</span></h2>
+    {% if r.sumiram %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>rede</th><th class="num">obs</th><th>última vez</th><th></th></tr></thead>
+        <tbody>
+          {% for s in r.sumiram %}
+          <tr>
+            <td>{{ s.ssid or '(oculto)' }}<div class="texto-fraco mono">{{ s.mac }}</div></td>
+            <td class="num">{{ s.obs }}</td>
+            <td class="texto-fraco">{{ (s.ultimo or '')[5:16] }}</td>
+            <td>{% if s.lat is not none %}
+              <a class="botao mini" href="{{ url_for('ui.mapa', rede=s.mac) }}">mapa</a>
+            {% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if r.sumiram_total > r.sumiram|length %}<p class="texto-fraco">mostrando as {{ r.sumiram|length }} com mais observações.</p>{% endif %}
+    {% else %}<p class="texto-fraco">Nenhuma rede desapareceu.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

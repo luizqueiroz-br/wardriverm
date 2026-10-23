@@ -9,8 +9,8 @@ from pathlib import Path
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 
-from . import (categorias, config, db, exporter, importer, privacidade, queries, seguranca,
-               uploaders, upload_service)
+from . import (categorias, config, db, exporter, importer, mudancas, privacidade, queries,
+               seguranca, uploaders, upload_service)
 from .jobs import runner
 
 ui = Blueprint("ui", __name__)
@@ -172,6 +172,47 @@ def rede_detalhe(mac: str):
     if not dados:
         abort(404)
     return render_template("rede_detalhe.html", **dados)
+
+
+# --------------------------------------------------------------------------- #
+# o que mudou entre passagens
+# --------------------------------------------------------------------------- #
+def _args_mudancas() -> dict:
+    """Janelas e área do formulário, com padrão = últimos dias do acervo."""
+    conn = db.get_db()
+    padrao = mudancas.janelas_sugeridas(conn)
+    args = {chave: request.args.get(chave) or padrao[chave]
+            for chave in ("de_a", "ate_a", "de_b", "ate_b")}
+    args["tipo"] = request.args.get("tipo") or "WIFI"
+    args["lat"] = request.args.get("lat", "").strip()
+    args["lon"] = request.args.get("lon", "").strip()
+    args["raio_m"] = request.args.get("raio_m", "200").strip() or "200"
+    return args
+
+
+def _area_dos_args(args: dict) -> dict | None:
+    if not (args["lat"] and args["lon"]):
+        return None
+    try:
+        return {"lat": float(args["lat"]), "lon": float(args["lon"]),
+                "raio_m": max(20, min(5000, int(float(args["raio_m"]))))}
+    except ValueError:
+        return None
+
+
+@ui.get("/mudancas")
+def mudancas_page():
+    conn = db.get_db()
+    args = _args_mudancas()
+    resultado = mudancas.comparar(conn, args["de_a"], args["ate_a"], args["de_b"], args["ate_b"],
+                                  area=_area_dos_args(args), tipo=args["tipo"], limite=25)
+    # a cor de cada auth na tabela vem da mesma regra do mapa de risco
+    for item in resultado["mudaram"]:
+        item["risco_antes"] = seguranca.risco_de(item["auth_antes"])
+        item["risco_agora"] = seguranca.risco_de(item["auth_agora"])
+    return render_template("mudancas.html", args=args, r=resultado,
+                           periodo=mudancas.periodo_disponivel(conn),
+                           riscos=seguranca.RISCO)
 
 
 # --------------------------------------------------------------------------- #
