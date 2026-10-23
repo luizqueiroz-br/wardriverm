@@ -916,3 +916,131 @@
     if (estado.ativo) escutar(estado.sequencia || 0);
   });
 })();
+
+/* ------------------------------------------- escolher a área em Mudanças */
+(() => {
+  const alvo = document.getElementById("mapa-mudancas");
+  if (!alvo || typeof L === "undefined") return;
+  const campoLat = document.getElementById("lat");
+  const campoLon = document.getElementById("lon");
+  const campoRaio = document.getElementById("raio_m");
+  const slider = document.getElementById("raio-slider");
+  const rotuloRaio = document.getElementById("raio-valor");
+  const resumo = document.getElementById("area-resumo");
+  const limpar = document.getElementById("limpar-area");
+  const caixaPercurso = document.getElementById("mostrar-percurso");
+
+  const mapa = L.map(alvo, { zoomControl: true }).setView([-23.28, -47.29], 13);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxZoom: 19, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa);
+  const renderer = L.svg({ padding: 0.6 });
+  const camadaPercurso = L.layerGroup().addTo(mapa);
+  window.mapaMudancas = mapa;
+
+  setTimeout(() => mapa.invalidateSize(), 250);
+  new IntersectionObserver((entradas) => {
+    if (entradas.some((e) => e.isIntersecting)) mapa.invalidateSize();
+  }, { threshold: 0.2 }).observe(alvo);
+
+  let marcador = null;
+  let circulo = null;
+  let raio = parseInt(alvo.dataset.raio, 10) || 200;
+
+  function escreverCampos(lat, lon) {
+    const lat6 = Number(lat).toFixed(6);
+    const lon6 = Number(lon).toFixed(6);
+    if (campoLat) campoLat.value = lat6;
+    if (campoLon) campoLon.value = lon6;
+    if (campoRaio) campoRaio.value = raio;
+    const texto = `${lat6}, ${lon6} · raio ${raio} m`;
+    if (resumo) resumo.textContent = texto;
+  }
+
+  const CORES_PERCURSO = { "1": "#4a7f9e", "2-5": "#3f6f8c", "6+": "#335c76" };
+  const OPACIDADE = { "1": 0.22, "2-5": 0.34, "6+": 0.46 };
+
+  async function desenharPercurso() {
+    camadaPercurso.clearLayers();
+    if (!caixaPercurso || !caixaPercurso.checked) return;
+    const de = alvo.dataset.de, ate = alvo.dataset.ate;
+    if (!de || !ate) return;
+    try {
+      const resposta = await fetch(`/api/mapa/cobertura?de=${de}&ate=${ate}&tipo=WIFI`);
+      const dados = await resposta.json();
+      for (const celula of dados.celulas || []) {
+        const faixa = celula.n >= 6 ? "6+" : celula.n >= 2 ? "2-5" : "1";
+        L.rectangle([[celula.lat - 0.0005, celula.lon - 0.0005],
+                     [celula.lat + 0.0005, celula.lon + 0.0005]], {
+          renderer, stroke: false, fillColor: CORES_PERCURSO[faixa],
+          fillOpacity: OPACIDADE[faixa], interactive: false,
+        }).addTo(camadaPercurso);
+      }
+    } catch (erro) {
+      if (resumo) resumo.textContent = "não deu para carregar o percurso";
+    }
+  }
+
+  function porArea(lat, lon, opcoes = {}) {
+    const moverMapa = opcoes.moverMapa === true;
+    if (marcador) { mapa.removeLayer(marcador); marcador = null; }
+    if (circulo) { mapa.removeLayer(circulo); circulo = null; }
+    circulo = L.circle([lat, lon], {
+      radius: raio, renderer, color: "#4ad295", weight: 2,
+      fillColor: "#4ad295", fillOpacity: 0.12,
+    }).addTo(mapa);
+    marcador = L.marker([lat, lon], { draggable: true }).addTo(mapa);
+    marcador.on("drag", () => {
+      const pos = marcador.getLatLng();
+      circulo.setLatLng(pos);
+      escreverCampos(pos.lat, pos.lng);
+    });
+    marcador.on("dragend", () => {
+      const pos = marcador.getLatLng();
+      escreverCampos(pos.lat, pos.lng);
+    });
+    escreverCampos(lat, lon);
+    // animação de zoom não completa nesta máquina (some sem erro): vai direto
+    if (moverMapa) mapa.setView([lat, lon], 16, { animate: false });
+  }
+
+  function limparArea() {
+    if (marcador) { mapa.removeLayer(marcador); marcador = null; }
+    if (circulo) { mapa.removeLayer(circulo); circulo = null; }
+    if (campoLat) campoLat.value = "";
+    if (campoLon) campoLon.value = "";
+    if (resumo) resumo.textContent = "sem área: comparando o acervo inteiro";
+  }
+
+  mapa.on("click", (evento) => {
+    // clique em zoom de cidade não deixa escolher a esquina: aproxima na primeira vez
+    if (mapa.getZoom() < 14) mapa.setView(evento.latlng, 15, { animate: false });
+    porArea(evento.latlng.lat, evento.latlng.lng);
+  });
+
+  slider?.addEventListener("input", () => {
+    raio = parseInt(slider.value, 10);
+    rotuloRaio.textContent = `${raio} m`;
+    if (circulo) circulo.setRadius(raio);
+    if (campoRaio) campoRaio.value = raio;
+    if (marcador) {
+      const pos = marcador.getLatLng();
+      escreverCampos(pos.lat, pos.lng);
+    }
+  });
+
+  limpar?.addEventListener("click", limparArea);
+  caixaPercurso?.addEventListener("change", desenharPercurso);
+
+  // chegando com ?lat&lon&raio na URL (ou depois de comparar), reconstrói a área
+  const lat = parseFloat(alvo.dataset.lat);
+  const lon = parseFloat(alvo.dataset.lon);
+  if (isFinite(lat) && isFinite(lon)) {
+    if (slider) slider.value = raio;
+    rotuloRaio.textContent = `${raio} m`;
+    porArea(lat, lon, { moverMapa: true });
+  } else {
+    rotuloRaio.textContent = `${raio} m`;
+    if (resumo) resumo.textContent = "clique no mapa para escolher a área";
+  }
+  desenharPercurso();
+})();
