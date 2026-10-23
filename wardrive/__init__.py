@@ -52,6 +52,13 @@ def create_app(settings_overrides: dict | None = None) -> Flask:
             return "—"
         return f"{valor:.1f}".replace(".", ",")
 
+    @app.template_filter("pct")
+    def _pct(valor):
+        """7.4 → '7,4' (o app inteiro fala português: vírgula decimal)."""
+        if valor is None:
+            return "—"
+        return f"{valor:.1f}".replace(".", ",")
+
     from .views import ui
     from .api import api
 

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block titulo %}Segurança{% endblock %}
+
+{% block conteudo %}
+<h1>O que está no ar — e quão frágil é</h1>
+<p class="texto-fraco" style="max-width:900px">
+  Diagnóstico do próprio acervo: quantas redes Wi-Fi da região estão <strong>sem senha
+  ou com WEP</strong> (criptografia quebrada há mais de uma década) e quantas ainda estão
+  com o <strong>nome de fábrica</strong>, que costuma vir com a senha do manual.
+  Nada aqui tenta entrar em rede nenhuma — é leitura do que foi ouvido da rua.
+</p>
+
+<div class="grade c4">
+  <div class="cartao compacto {{ 'kpi-alerta' if resumo.pct_fracas > 10 }}">
+    <div class="titulo-kpi">Redes fracas</div>
+    <div class="valor">{{ resumo.fracas }}</div>
+    <div class="sub">{{ resumo.pct_fracas | pct }}% das {{ resumo.total }} redes Wi-Fi
+      <div class="solta-baixo">{{ resumo.por_risco.aberta }} abertas · {{ resumo.por_risco.wep }} WEP</div>
+    </div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">WPA2</div>
+    <div class="valor">{{ resumo.por_risco.wpa2 }}</div>
+    <div class="sub">padrão hoje — ainda vulnerável a senha fraca</div>
+  </div>
+  <div class="cartao compacto kpi-verde">
+    <div class="titulo-kpi">WPA3</div>
+    <div class="valor">{{ resumo.por_risco.wpa3 }}</div>
+    <div class="sub">{{ resumo.por_risco.mista }} em modo misto (WPA2+WPA3)</div>
+  </div>
+  <div class="cartao compacto">
+    <div class="titulo-kpi">SSID de fábrica</div>
+    <div class="valor">{{ fabrica | sum(attribute='redes') }}</div>
+    <div class="sub">nomes que saem do roteador como veio</div>
+  </div>
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <div class="linha-botoes" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h2 style="margin:0">Onde está pior <span class="texto-fraco">(células de ~100 m)</span></h2>
+    <div class="linha-botoes">
+      <a class="botao mini" href="{{ url_for('ui.mapa') }}?modo=risco">ver no mapa</a>
+      <a class="botao mini" href="{{ url_for('ui.seguranca_csv', tipo='ranking') }}">CSV</a>
+    </div>
+  </div>
+  {% if celulas %}
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>célula</th><th class="num">redes Wi-Fi</th><th class="num">fracas</th>
+                 <th class="num">% fracas</th><th>pior risco</th><th></th></tr></thead>
+      <tbody>
+        {% for c in celulas %}
+        <tr>
+          <td class="mono">{{ '%.5f'|format(c.lat) }}, {{ '%.5f'|format(c.lon) }}</td>
+          <td class="num">{{ c.redes }}</td>
+          <td class="num">{{ c.fracas }}</td>
+          <td class="num">{{ c.pct_fracas | pct }}</td>
+          <td><span class="etiqueta risco" style="--cor: {{ riscos[c.pior].cor }}">{{ riscos[c.pior].rotulo }}</span></td>
+          <td><a class="botao mini" href="{{ url_for('ui.mapa') }}?lat={{ c.lat }}&lon={{ c.lon }}">mapa</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="texto-fraco" style="margin:0">Sem observações Wi-Fi com GPS nesta seleção.</p>
+  {% endif %}
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <div class="linha-botoes" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h2 style="margin:0">SSID de fábrica</h2>
+    <div class="linha-botoes">
+      <a class="botao mini" href="{{ url_for('ui.seguranca_csv', tipo='fabrica') }}">CSV</a>
+      <a class="botao mini" href="{{ url_for('ui.seguranca_csv', tipo='fabrica', mascarar=1) }}">CSV mascarado</a>
+    </div>
+  </div>
+  <p class="texto-fraco" style="margin-top:0">
+    Nome de fábrica não é falha por si só — mas é o cenário em que a senha do manual
+    funciona. A coluna “padrão” mostra qual regra casou.
+  </p>
+  {% if fabrica %}
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>SSID</th><th>padrão</th><th class="num">redes</th>
+                 <th class="num">observações</th><th class="num">abertas/WEP</th></tr></thead>
+      <tbody>
+        {% for f in fabrica %}
+        <tr>
+          <td>{{ f.ssid }}</td>
+          <td class="texto-fraco">{{ f.padrao }}</td>
+          <td class="num">{{ f.redes }}</td>
+          <td class="num">{{ f.obs }}</td>
+          <td class="num {{ 'texto-alerta' if f.abertas }}">{{ f.abertas }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="texto-fraco" style="margin:0">Nenhum SSID de fábrica reconhecido.</p>
+  {% endif %}
+</div>
+
+<div class="cartao" style="margin-top:14px">
+  <h2 style="margin-bottom:8px">Faixas de risco</h2>
+  <p style="margin:0">
+    {% for chave, info in riscos.items() %}
+      <span class="etiqueta risco" style="--cor: {{ info.cor }}">{{ info.rotulo }}</span>
+      <span class="texto-fraco">{{ resumo.por_risco[chave] }}</span>
+      &nbsp;&nbsp;
+    {% endfor %}
+  </p>
+</div>
+{% endblock %}

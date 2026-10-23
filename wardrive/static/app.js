@@ -230,7 +230,12 @@
     // a densidade por célula muda com o zoom: reescala o calor e, no zoom de
     // inspeção, troca bolinha por ícone
     mapa.on("zoomend", aoMudarVista);
-    mapa.on("moveend", () => { if (querIcones()) desenharPontos(); });
+    // no arrasto, o modo ícone refaz a camada com o que está na tela; nos modos de
+    // grade/risco os pontos vêm de outra consulta e não devem ser redesenhados
+    mapa.on("moveend", () => {
+      if (modoCobertura) return;
+      if (querIcones()) desenharPontos();
+    });
 
     function cor(tipo) {
       return cores[tipo] || "#ffb454";
@@ -440,8 +445,10 @@
       const form = document.getElementById("form-mapa");
       const params = new URLSearchParams(new FormData(form));
       const legendaCobertura = document.getElementById("legenda-cobertura");
+      const legendaRisco = document.getElementById("legenda-risco");
       const emCobertura = params.get("modo") === "cobertura";
-      modoCobertura = emCobertura;
+      const emRisco = params.get("modo") === "risco";
+      modoCobertura = emCobertura || emRisco;
 
       if (emCobertura) {
         // modo cobertura: grade em vez de pontos — some com marcadores e calor
@@ -470,7 +477,69 @@
         }
         return;
       }
+
+      if (emRisco) {
+        // modo risco: um ponto por rede, colorido pela faixa do auth_mode. A grade
+        // por célula ficaria vermelha em todo lugar (todo quarteirão tem uma rede
+        // aberta), então aqui o que informa é a rede, não a célula.
+        const paramsRisco = new URLSearchParams(params);
+        paramsRisco.set("modo", "redes");
+        // risco é coisa de Wi-Fi: sem esse filtro, os 20 mil pontos são dominados por
+        // BLE e as redes abertas (pouco observadas) ficam fora do corte
+        paramsRisco.delete("tipo");
+        paramsRisco.append("tipo", "WIFI");
+        const dados = await api("/api/mapa/pontos?" + paramsRisco.toString());
+        camadaIcones.clearLayers();
+        grupo.clearLayers();
+        removerCobertura();
+        ultimosPontos = [];
+        desenharCalor();
+        desenharTrajeto([]);
+        const riscos = window.WARDRIVE_RISCOS || {};
+        const limites = [];
+        let fracas = 0;
+        // pinta do melhor para o pior: assim a rede aberta (a que interessa) fica por
+        // cima quando duas caem no mesmo pixel
+        const ordenados = (dados.pontos || []).slice().sort((a, b) => {
+          const ga = (riscos[b.risco] || {}).gravidade ?? 9;
+          const gb = (riscos[a.risco] || {}).gravidade ?? 9;
+          return ga - gb;
+        });
+        for (const p of ordenados) {
+          if (p.lat == null || p.lon == null) continue;
+          const info = riscos[p.risco] || { cor: "#6b7688", rotulo: p.risco || "?" };
+          if (p.risco === "aberta" || p.risco === "wep") fracas += 1;
+          const marcador = L.circleMarker([p.lat, p.lon], {
+            radius: 5, color: info.cor, weight: 1, fillColor: info.cor, fillOpacity: 0.8,
+          });
+          const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
+          marcador.bindPopup(
+            `<b>${escapar(ssid)}</b><br><span style="font-family:monospace">${escapar(p.mac)}</span><br>` +
+            `<span style="color:${escapar(info.cor)}">${escapar(info.rotulo)}</span> · ` +
+            `RSSI ${p.rssi ?? "?"} dBm<br>` +
+            `<span style="opacity:.7">${escapar(p.first_seen || "")}</span>`
+          );
+          marcador.addTo(camadaIcones);
+          if (limites.length < 800) limites.push([p.lat, p.lon]);
+        }
+        if (legendaRisco) legendaRisco.hidden = false;
+        mostrarResumo({});
+        const total = (dados.pontos || []).length;
+        const pct = total ? (100 * fracas / total).toFixed(1).replace(".", ",") : "0";
+        infoBase = `${total} rede(s) Wi-Fi · ${fracas} fraca(s) (${pct}%) — aberta ou WEP`;
+        const infoRisco = document.getElementById("mapa-info");
+        if (infoRisco) infoRisco.textContent = infoBase;
+        if (limites.length) {
+          mapa.invalidateSize();
+          const lat = parseFloat(alvoMapa.dataset.lat);
+          const lon = parseFloat(alvoMapa.dataset.lon);
+          if (isFinite(lat) && isFinite(lon)) mapa.setView([lat, lon], 17);
+          else enquadrar(limites);
+        }
+        return;
+      }
       if (legendaCobertura) legendaCobertura.hidden = true;
+      if (legendaRisco) legendaRisco.hidden = true;
       removerCobertura();
 
       const dados = await api("/api/mapa/pontos?" + params.toString());

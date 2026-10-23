@@ -125,7 +125,7 @@ td.mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
 [hidden] { display: none !important; }
 
 /* etiqueta de categoria de objeto (cor via --cor) */
-.etiqueta.objeto {
+.etiqueta.objeto, .etiqueta.risco {
   background: color-mix(in srgb, var(--cor, #55607a) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--cor, #55607a) 55%, transparent);
   color: var(--cor, #c9d1e0);

@@ -9,8 +9,8 @@ from pathlib import Path
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 
-from . import (categorias, config, db, exporter, importer, privacidade, queries, uploaders,
-               upload_service)
+from . import (categorias, config, db, exporter, importer, privacidade, queries, seguranca,
+               uploaders, upload_service)
 from .jobs import runner
 
 ui = Blueprint("ui", __name__)
@@ -47,6 +47,7 @@ def dashboard():
         "uploads": queries.recent_uploads(conn, 10),
         "eventos": queries.events(conn, 12),
         "qualidade": queries.quality_report(conn),
+        "risco": seguranca.resumo(conn),
         "objetos": categorias.resumo_categorias(conn),
         "nomes_categoria": categorias.CATEGORIAS,
         "progresso": queries.progresso_geral(conn),
@@ -174,6 +175,42 @@ def rede_detalhe(mac: str):
 
 
 # --------------------------------------------------------------------------- #
+# segurança (redes abertas, WEP, SSID de fábrica)
+# --------------------------------------------------------------------------- #
+@ui.get("/seguranca")
+def seguranca_page():
+    conn = db.get_db()
+    args = _page_args()
+    celulas = seguranca.por_celula(conn, de=args["de"], ate=args["ate"], limite=300)
+    return render_template("seguranca.html", args=args,
+                           resumo=seguranca.resumo(conn),
+                           riscos=seguranca.RISCO,
+                           celulas=celulas[:60],
+                           fabrica=seguranca.fabrica(conn, limite=60))
+
+
+@ui.get("/seguranca.csv")
+def seguranca_csv():
+    """Ranking por célula ou lista de SSID de fábrica, com máscara opcional."""
+    conn = db.get_db()
+    tipo = request.args.get("tipo", "ranking")
+    mascarar = request.args.get("mascarar") == "1"
+    if tipo == "fabrica":
+        conteudo = seguranca.csv_fabrica(seguranca.fabrica(conn, limite=2000), mascarar=mascarar)
+        nome = "ssid-de-fabrica"
+    else:
+        conteudo = seguranca.csv_ranking(
+            seguranca.por_celula(conn, de=request.args.get("de", ""),
+                                 ate=request.args.get("ate", ""), limite=5000),
+            mascarar=mascarar)
+        nome = "risco-por-celula"
+    buffer = io.BytesIO(conteudo)
+    buffer.seek(0)
+    return send_file(buffer, mimetype="text/csv", as_attachment=True,
+                     download_name=f"{nome}{'-mascarado' if mascarar else ''}.csv")
+
+
+# --------------------------------------------------------------------------- #
 # rastreadores (BLE que acompanha o percurso)
 # --------------------------------------------------------------------------- #
 @ui.get("/rastreadores")
@@ -252,6 +289,7 @@ def mapa():
                            categorias=categorias.resumo_categorias(conn),
                            nomes_categoria=categorias.CATEGORIAS,
                            icones=categorias.ICONES,
+                           riscos=seguranca.RISCO,
                            mapa_objetos=_objetos_para_mapa())
 
 

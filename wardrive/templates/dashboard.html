@@ -121,6 +121,11 @@
 
   <div class="cartao">
     <h2>Segurança dos APs</h2>
+    <p class="solta-baixo">
+      <strong class="{{ 'texto-alerta' if risco.pct_fracas > 10 }}">{{ risco.fracas }} de {{ risco.total }}
+      redes Wi-Fi</strong> estão abertas ou com WEP ({{ risco.pct_fracas | pct }}%) —
+      <a href="{{ url_for('ui.seguranca_page') }}">ver diagnóstico</a>
+    </p>
     {% if top_auth %}
       {% set maximo = top_auth | map(attribute='obs') | max %}
       <div class="mini-barras">

@@ -61,6 +61,12 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **Mapa de risco**: modo `risco` no mapa pinta **uma bolinha por rede Wi-Fi** pela
+  fragilidade — aberta (vermelho), WEP (laranja), WPA (amarelo), misto, WPA2 (azul),
+  WPA3 (verde), 802.1X — sem agrupar, e a pior fica por cima. A página **Segurança**
+  traz o resumo, o ranking de células (~100 m) com mais redes fracas e a lista de
+  **SSID de fábrica** (nome do roteador como veio = senha do manual), com CSV
+  normal ou mascarado.
 * **Cobertura**: modo `cobertura` no mapa desenha a grade de ~100 m com as passagens
   (azul 1, verde 2–5, amarelo 6+); o vazio é onde você nunca passou. A mesma consulta
   devolve km rodados e km² cobertos da seleção, com o corte de salto do percurso.

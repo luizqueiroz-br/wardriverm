@@ -23,6 +23,7 @@
       <option value="observacoes" {{ 'selected' if modo_atual == 'observacoes' }}>cada observação</option>
       <option value="redes" {{ 'selected' if modo_atual == 'redes' }}>uma por rede (melhor sinal)</option>
       <option value="cobertura" {{ 'selected' if modo_atual == 'cobertura' }}>cobertura (grade de ~100 m)</option>
+      <option value="risco" {{ 'selected' if modo_atual == 'risco' }}>risco (redes fracas)</option>
     </select></div>
   <div class="campo"><label for="categoria">objeto</label>
     <select id="categoria" name="categoria">
@@ -73,9 +74,15 @@
   <span><i class="gradiente-calor"></i>calor: menos → mais coletas</span>
   <span id="legenda-cobertura" hidden>
     <span><i style="background:#2f6f9e"></i>1 passagem</span>
-    <span><i style="background:#3fa06a"></i>2–5</span>
-    <span><i style="background:#ffd166"></i>6+</span>
+    <span><i style="background:#2f9e63"></i>2–5</span>
+    <span><i style="background:#e8b31d"></i>6+</span>
     <span class="texto-fraco">célula de ~100 m · o vazio é onde você nunca passou</span>
+  </span>
+  <span id="legenda-risco" hidden>
+    {% for chave in ('aberta', 'wep', 'wpa', 'mista', 'wpa2', 'wpa3', 'empresa', 'desconhecido') %}
+      <span><i style="background:{{ riscos[chave].cor }}"></i>{{ riscos[chave].rotulo }}</span>
+    {% endfor %}
+    <span class="texto-fraco">clique no ponto para ver SSID e hora</span>
   </span>
   <label class="check" style="margin-left:auto; gap:8px">peso do calor
     <select id="calor-peso" name="calor_peso" style="min-width:210px">
@@ -116,6 +123,7 @@
 <script>
   // nome/cor/ícone de cada objeto (vem do servidor para não duplicar a lista aqui)
   window.WARDRIVE_OBJETOS = {{ mapa_objetos|tojson }};
+  window.WARDRIVE_RISCOS = {{ riscos|tojson }};
   // o base.html já carrega static/app.js depois deste bloco; o mapa usa o Leaflet
   // carregado no <head>, então nada a fazer aqui além de manter a ordem.
 </script>

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import config, db, importer, queries
+from . import config, db, importer, queries, seguranca
 from .jobs import runner
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -29,6 +29,25 @@ def job_detail(job_id: str):
 def resumo():
     conn = db.get_db()
     return jsonify(queries.overview(conn))
+
+
+@api.get("/mapa/risco")
+def mapa_risco():
+    """Células de ~100 m com quantas redes Wi-Fi fracas (aberta/WEP) foram vistas."""
+    conn = db.get_db()
+    file_ids = [i for i in request.args.getlist("sessao") if i.isdigit()]
+    celulas = seguranca.por_celula(conn, file_ids=file_ids,
+                                   de=request.args.get("de", ""),
+                                   ate=request.args.get("ate", ""),
+                                   limite=request.args.get("limite", 2000, type=int))
+    return jsonify({
+        "celulas": celulas,
+        "grau_celula": 0.001,
+        "total_celulas": len(celulas),
+        "redes": sum(c["redes"] for c in celulas),
+        "fracas": sum(c["fracas"] for c in celulas),
+        "riscos": seguranca.RISCO,
+    })
 
 
 @api.get("/mapa/cobertura")
@@ -70,6 +89,10 @@ def mapa_pontos():
         categoria=categoria,
     )
     limite = int(limite_arg or config.load_settings()["map"]["max_points"])
+    # o mapa de risco colore o ponto pelo auth_mode: resolver aqui evita repetir
+    # a regra no JavaScript
+    for ponto in pontos:
+        ponto["risco"] = seguranca.risco_de(ponto.get("auth_mode"))
     resumo = queries.map_resumo(conn, file_ids=file_ids, types=tipos, date_from=data_from,
                                 date_to=data_to, mac=mac, categoria=categoria)
     return jsonify({

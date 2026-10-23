@@ -456,7 +456,7 @@ def map_points(conn, *, file_ids=None, types=None, date_from: str = "", date_to:
         rows = conn.execute(
             f"""SELECT n.mac, n.ssid, n.type, n.best_rssi AS rssi, n.best_lat AS lat,
                        n.best_lon AS lon, n.obs_count, n.first_seen, n.last_seen,
-                       n.categoria, '' AS auth_mode
+                       n.categoria, n.auth_mode
                   FROM networks n
                  WHERE n.best_lat IS NOT NULL AND n.best_lon IS NOT NULL{extras}
                  ORDER BY n.obs_count DESC LIMIT ?""",
