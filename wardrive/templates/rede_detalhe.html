@@ -58,6 +58,21 @@
     </div>
     {% endif %}
   </div>
+  {% if network.type == 'WIFI' %}
+  <div class="cartao" id="wigle-card" data-mac="{{ network.mac }}">
+    <h2>No WiGLE</h2>
+    <p class="texto-fraco" style="margin-top:0">
+      Esta rede já era conhecida? Quantas vezes foi vista no mundo? A consulta manda o
+      MAC para a API do WiGLE e <strong>gasta cota</strong> — por isso o resultado fica
+      guardado por 30 dias e só o botão “atualizar” consulta de novo.
+    </p>
+    <div class="linha-botoes">
+      <button type="button" class="mini" id="wigle-consultar">consultar no WiGLE</button>
+      <span class="texto-fraco" id="wigle-aviso"></span>
+    </div>
+    <div id="wigle-resultado"></div>
+  </div>
+  {% endif %}
   <div class="cartao">
     <h2>Resumo para exportação</h2>
     <p class="texto-fraco">

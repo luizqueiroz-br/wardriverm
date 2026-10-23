@@ -266,6 +266,10 @@ def migrar(conn: sqlite3.Connection) -> None:
         id INTEGER PRIMARY KEY AUTOINCREMENT, lat REAL NOT NULL, lon REAL NOT NULL,
         raio_m INTEGER NOT NULL, rotulo TEXT, modo TEXT NOT NULL DEFAULT 'excluir',
         criado_em TEXT NOT NULL DEFAULT (datetime('now')))""")
+    # consulta por BSSID no WiGLE — cache de 30 dias para não gastar cota
+    conn.execute("""CREATE TABLE IF NOT EXISTS wigle_consultas (
+        mac TEXT PRIMARY KEY, consultado_em TEXT NOT NULL, status TEXT NOT NULL,
+        http_status INTEGER, corpo TEXT, erro TEXT)""")
     conn.commit()
 
 

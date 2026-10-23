@@ -704,3 +704,74 @@
   if (lon) document.getElementById("canal-lon").value = lon;
   if (rede || (lat && lon)) analisar();
 })();
+
+/* ------------------------------------------------------------------- wigle */
+(() => {
+  const cartao = document.getElementById("wigle-card");
+  if (!cartao) return;
+  const mac = cartao.dataset.mac;
+  const botao = document.getElementById("wigle-consultar");
+  const alvo = document.getElementById("wigle-resultado");
+  const aviso = document.getElementById("wigle-aviso");
+  const esc = (texto) => String(texto ?? "").replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function dataBr(iso) {
+    if (!iso) return "—";
+    return String(iso).slice(0, 10).split("-").reverse().join("/");
+  }
+
+  function desenhar(dados) {
+    if (dados.status === "erro") {
+      return `<p class="texto-alerta" style="margin:10px 0 0">${esc(dados.erro)}</p>`;
+    }
+    const quando = dados.consultado_em ? ` · consultado em ${esc(dados.consultado_em)}` : "";
+    const doCache = dados.cache ? `<span class="etiqueta">do cache${quando}</span> ` : "";
+    if (!dados.encontrada) {
+      return `<p style="margin:10px 0 0">${doCache}
+        <strong>O WiGLE não tem registro deste MAC.</strong>
+        <span class="texto-fraco">Pode ser rede nova, MAC trocado ou equipamento que só você ouviu.</span></p>`;
+    }
+    const itens = (dados.resultados || []).map((r) => `
+      <tr>
+        <td>${esc(r.ssid) || "(oculto)"}</td>
+        <td class="texto-fraco">${esc([r.cidade, r.regiao, r.pais].filter(Boolean).join(" · "))}</td>
+        <td class="num">${r.canal ?? "—"}</td>
+        <td class="texto-fraco">${esc(r.criptografia).toUpperCase() || "—"}</td>
+        <td class="texto-fraco">${dataBr(r.primeira)} → ${dataBr(r.ultima)}</td>
+        <td class="mono texto-fraco">${r.lat != null ? Number(r.lat).toFixed(4) : "—"},
+            ${r.lon != null ? Number(r.lon).toFixed(4) : "—"}</td>
+      </tr>`).join("");
+    const total = dados.total || (dados.resultados || []).length;
+    return `<p style="margin:10px 0 6px">${doCache}
+        <strong>${total} ${total === 1 ? "aparição" : "aparições"} no mundo</strong>
+        <span class="texto-fraco">— este MAC já foi mapeado por outras pessoas</span></p>
+      <div class="tabela-rolagem"><table>
+        <thead><tr><th>SSID lá</th><th>onde</th><th class="num">canal</th><th>cripto</th>
+                   <th>primeira → última</th><th>coordenada</th></tr></thead>
+        <tbody>${itens}</tbody></table></div>`;
+  }
+
+  async function consultar(forcar) {
+    botao.disabled = true;
+    aviso.textContent = "consultando…";
+    try {
+      const resposta = await fetch(`/api/wigle/rede/${encodeURIComponent(mac)}${forcar ? "?forcar=1" : ""}`);
+      const dados = await resposta.json();
+      alvo.innerHTML = desenhar(dados);
+      aviso.textContent = dados.cache ? "resultado guardado — use “atualizar” para consultar de novo"
+        : "";
+      if (dados.status !== "erro") {
+        botao.textContent = "atualizar (gasta cota)";
+        botao.dataset.forcar = "1";
+      }
+    } catch (erro) {
+      alvo.innerHTML = `<p class="texto-alerta" style="margin:10px 0 0">Não deu para consultar: ${esc(erro)}</p>`;
+      aviso.textContent = "";
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  botao.addEventListener("click", () => consultar(botao.dataset.forcar === "1"));
+})();

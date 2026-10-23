@@ -35,6 +35,7 @@ WIGLE_COLUMNS = [
 WIGLE_API_BASE = "https://api.wigle.net"
 WIGLE_UPLOAD_PATH = "/api/v2/file/upload"
 WIGLE_UPLOADS_PATH = "/api/v2/profile/uploads"
+WIGLE_SEARCH_PATH = "/api/v2/network/search"
 WDGWARS_API_BASE = "https://wdgwars.pl"
 WDGWARS_CSV_PATH = "/endpoint/upload-csv"
 WDGWARS_ME_PATH = "/api/me"

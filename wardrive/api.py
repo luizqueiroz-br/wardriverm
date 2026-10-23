@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from . import canais, config, db, importer, mudancas, queries, seguranca
+from . import canais, config, db, importer, mudancas, queries, seguranca, wigle
 from .jobs import runner
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -55,6 +55,15 @@ def mudancas_endpoint():
                                   tipo=request.args.get("tipo", "WIFI"),
                                   limite=request.args.get("limite", 200, type=int))
     return jsonify(resultado)
+
+
+@api.get("/wigle/rede/<mac>")
+def wigle_rede(mac: str):
+    """Histórico global de um BSSID no WiGLE. Consulta sob demanda, com cache de 30 dias."""
+    conn = db.get_db()
+    forcar = request.args.get("forcar") in ("1", "true", "sim")
+    return jsonify(wigle.consultar(conn, mac, forcar=forcar,
+                                   base=config.load_settings()["upload"].get("wigle_base")))
 
 
 @api.get("/canais")

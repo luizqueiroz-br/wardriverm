@@ -99,6 +99,9 @@ class EstadoFalso:
         self.credencial_wigle = "usuario_teste:token_de_teste"
         self.credencial_wdg = "b" * 64
         self.wigle_estilo_resultado = "lista"   # lista | objeto | string | sem_success
+        self.modo_busca = "ok"                  # ok | 404 | 401 | 429 | 500
+        self.redes_globais: dict[str, list] = {}
+        self.consultas: list[str] = []
         self.travar = threading.Lock()
 
     def reiniciar(self):
@@ -110,6 +113,9 @@ class EstadoFalso:
             self.recebidos = []
             self.arquivos_wdg = set()
             self.wigle_estilo_resultado = "lista"
+            self.modo_busca = "ok"
+            self.redes_globais = {}
+            self.consultas = []
 
     @staticmethod
     def decodificar_basic(cabecalho: str) -> str:
@@ -179,6 +185,25 @@ class _Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------- GET
     def do_GET(self):
+        if self.path.startswith("/api/v2/network/search"):
+            from urllib.parse import unquote
+            consultas = unquote(self.path.split("netid=")[-1].split("&")[0]).upper()
+            with ESTADO.travar:                     # toda tentativa conta, inclusive 401/429
+                ESTADO.consultas.append(consultas)
+            cabecalho = self.headers.get("Authorization", "")
+            if ESTADO.modo_busca == "401" or not cabecalho.startswith("Basic "):
+                return self._responder(401, {"success": False, "message": "Authentication required"})
+            if ESTADO.modo_busca == "429":
+                return self._responder(429, {"success": False, "message": "too many requests"})
+            if ESTADO.modo_busca == "500":
+                return self._responder(500, {"success": False, "message": "boom"})
+            if ESTADO.modo_busca == "404" or consultas not in ESTADO.redes_globais:
+                return self._responder(404, {"success": False, "message": "no such netid"})
+            return self._responder(200, {
+                "success": True,
+                "totalResults": len(ESTADO.redes_globais[consultas]),
+                "results": ESTADO.redes_globais[consultas],
+            })
         if self.path.startswith("/api/v2/profile/uploads"):
             cabecalho = self.headers.get("Authorization", "")
             if not cabecalho.startswith("Basic "):

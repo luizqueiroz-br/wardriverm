@@ -61,6 +61,12 @@ Pela linha de comando:
   para **os lugares onde só ela apareceu**: os pontos dela, o traçado na ordem das
   coletas e um resumo com quantas vezes/sessões/locais, RSSI médio e a lista de
   sessões onde foi vista.
+* **No WiGLE**: na ficha de uma rede Wi-Fi, o botão consulta o BSSID na API do WiGLE
+  (`/api/v2/network/search?netid=`) com a mesma credencial do upload e mostra quantas
+  aparições globais a rede tem, onde, com que canal e criptografia. O resultado fica em
+  `wigle_consultas` por 30 dias — a consulta gasta cota, então só "atualizar" repete.
+  Erro de chave (401) e cota estourada (429) aparecem com texto próprio e **não** viram
+  cache.
 * **Suspeitos (SSID duplicado)**: o mesmo nome anunciado por placas de **fabricantes
   diferentes** na mesma célula de ~100 m, com sinal parecido — indício de *evil twin*.
   Ficam de fora o mesmo OUI (mesh e 2,4 + 5 GHz da mesma caixa), mais de 4 BSSIDs na
