@@ -497,10 +497,18 @@
         desenharTrajeto([]);
         const riscos = window.WARDRIVE_RISCOS || {};
         const limites = [];
+        // canvas do Leaflet fica em branco depois do zoom nesta máquina; SVG desenha
+        const renderer = L.svg({ padding: 0.5 });
         let fracas = 0;
         // pinta do melhor para o pior: assim a rede aberta (a que interessa) fica por
-        // cima quando duas caem no mesmo pixel
-        const ordenados = (dados.pontos || []).slice().sort((a, b) => {
+        // cima quando duas caem no mesmo pixel. Para o SVG não travar, entram todas as
+        // fracas e uma amostra das demais
+        const todos = dados.pontos || [];
+        const fracos = todos.filter(p => p.risco === "aberta" || p.risco === "wep");
+        const outros = todos.filter(p => !(p.risco === "aberta" || p.risco === "wep"));
+        const passo = Math.max(1, Math.ceil(outros.length / 3000));
+        const amostra = outros.filter((_, i) => i % passo === 0);
+        const ordenados = fracos.concat(amostra).sort((a, b) => {
           const ga = (riscos[b.risco] || {}).gravidade ?? 9;
           const gb = (riscos[a.risco] || {}).gravidade ?? 9;
           return ga - gb;
@@ -511,6 +519,7 @@
           if (p.risco === "aberta" || p.risco === "wep") fracas += 1;
           const marcador = L.circleMarker([p.lat, p.lon], {
             radius: 5, color: info.cor, weight: 1, fillColor: info.cor, fillOpacity: 0.8,
+            renderer: renderer,
           });
           const ssid = p.ssid && p.ssid.length ? p.ssid : "(SSID oculto)";
           marcador.bindPopup(
@@ -524,9 +533,10 @@
         }
         if (legendaRisco) legendaRisco.hidden = false;
         mostrarResumo({});
-        const total = (dados.pontos || []).length;
+        const total = todos.length;
         const pct = total ? (100 * fracas / total).toFixed(1).replace(".", ",") : "0";
-        infoBase = `${total} rede(s) Wi-Fi · ${fracas} fraca(s) (${pct}%) — aberta ou WEP`;
+        infoBase = `${fracas} rede(s) fraca(s) de ${total} Wi-Fi (${pct}%) — aberta ou WEP`;
+        if (passo > 1) infoBase += ` · amostra de ${amostra.length} das demais (${passo}ª de cada)`;
         const infoRisco = document.getElementById("mapa-info");
         if (infoRisco) infoRisco.textContent = infoBase;
         if (limites.length) {
