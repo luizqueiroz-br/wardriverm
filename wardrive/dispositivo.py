@@ -291,11 +291,18 @@ def puxar(conn, porta: str, destino: Path | str, *, importar: bool = True,
     return resumo
 
 
-def diagnostico(porta: str, *, baud: int = 115200, segundos: float = 5.0) -> list[str]:
-    """Abre a porta e despeja o que o firmware falar — para descobrir o protocolo."""
+def diagnostico(porta: str, *, baud: int = 115200, segundos: float = 5.0,
+                comando: str | None = None) -> list[str]:
+    """Abre a porta e despeja o que o firmware falar — para descobrir o protocolo.
+
+    Com `comando`, manda a linha primeiro (ex.: `help`, `sd list`) e mostra a
+    resposta: é assim que se descobre os comandos do fork sem abrir monitor serial.
+    """
     conexao = Porta(porta, baud)
     conexao.abrir()
     try:
+        if comando:
+            conexao.enviar(comando)
         return conexao.ler_ate_silencio(silencio=segundos, limite=segundos + 5)
     finally:
         conexao.fechar()

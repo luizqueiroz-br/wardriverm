@@ -121,9 +121,11 @@ def cmd_puxar(args) -> int:
     from wardrive import dispositivo
 
     if args.diagnostico:
-        print(f"Abrindo {args.porta} a {args.baud} baud por {args.segundos}s — a saída crua vem abaixo.")
+        alvo = f" e enviar “{args.comando}”" if args.comando else ""
+        print(f"Abrindo {args.porta} a {args.baud} baud por {args.segundos}s{alvo} — a saída crua vem abaixo.")
         try:
-            linhas = dispositivo.diagnostico(args.porta, baud=args.baud, segundos=args.segundos)
+            linhas = dispositivo.diagnostico(args.porta, baud=args.baud, segundos=args.segundos,
+                                             comando=args.comando)
         except dispositivo.ErroDispositivo as erro:
             print(f"✗ {erro}")
             return 1
@@ -353,6 +355,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sem-importar", action="store_true", help="só baixar, não importar")
     p.add_argument("--diagnostico", action="store_true",
                    help="não baixa nada: mostra a resposta crua do firmware")
+    p.add_argument("--comando", help="com --diagnostico, envia esta linha antes de ler (ex.: help)")
     p.add_argument("--segundos", type=float, default=5.0,
                    help="tempo de escuta no diagnóstico (padrão: 5)")
     p.set_defaults(func=cmd_puxar)
