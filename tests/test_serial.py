@@ -75,6 +75,13 @@ class ParseListagemTests(unittest.TestCase):
         self.assertEqual(arquivos["outro.csv"], 12 * 1024)
         self.assertEqual(arquivos["quarto.log"], 900)
 
+    def test_listagem_do_marauder_v118(self):
+        """`ls /` responde `nome<TAB>tamanho`, com o eco `#ls /` e o prompt no fim."""
+        saida = ["#ls /", "System Volume Information\t0", "wardrive_0.log\t951",
+                 "pingscan_0.log\t86", "> "]
+        arquivos = {a["nome"]: a["tamanho"] for a in dispositivo.parse_listagem(saida)}
+        self.assertEqual(arquivos, {"wardrive_0.log": 951, "pingscan_0.log": 86})
+
     def test_ignora_extensao_desconhecida(self):
         self.assertEqual(dispositivo.parse_listagem(["leia.txt.bak", "x.bin 100"]), [])
 
@@ -128,6 +135,28 @@ class PullTests(unittest.TestCase):
         porta = PortaFalsa(listagem=["marauder>", "marauder>"])
         r = dispositivo.puxar(self.conn, "COM5", self.destino, porta_obj=porta)
         self.assertIn("--diagnostico", r["erro"])
+
+    def test_firmware_que_so_lista_nao_grava_arquivo_falso(self):
+        """Marauder v1.18: `sd read` responde só o eco (`#sd read …`) e o prompt.
+
+        Sem tratar isso, o app grava 29 bytes de lixo e chama de "baixado" — foi
+        o que aconteceu no teste com o aparelho de verdade.
+        """
+        class PortaSemLeitura(PortaFalsa):
+            def enviar(self, texto):
+                self.enviados.append(texto)
+                if texto.startswith("sd list") or texto.startswith("ls"):
+                    self._fila = ["wardrive_0.log\t951"]
+                else:
+                    nome = texto.split()[-1]
+                    self._fila = [f"#{texto}", "> "]
+
+        porta = PortaSemLeitura()
+        r = dispositivo.puxar(self.conn, "COM3", self.destino, importar=False, porta_obj=porta)
+        self.assertTrue(r["sem_leitura"])
+        self.assertIn("não expõe leitura", r["erro"])
+        self.assertEqual(r["baixados"], [])
+        self.assertFalse((self.destino / "wardrive_0.log").exists())
 
     def test_importa_o_que_baixou(self):
         porta = PortaFalsa()

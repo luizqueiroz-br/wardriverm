@@ -120,6 +120,9 @@ def cmd_categorizar(args) -> int:
 def cmd_puxar(args) -> int:
     from wardrive import dispositivo
 
+    if args.somente_listar and args.diagnostico:
+        print("Escolha um: --somente-listar ou --diagnostico.")
+        return 2
     if args.diagnostico:
         alvo = f" e enviar “{args.comando}”" if args.comando else ""
         print(f"Abrindo {args.porta} a {args.baud} baud por {args.segundos}s{alvo} — a saída crua vem abaixo.")
@@ -139,9 +142,18 @@ def cmd_puxar(args) -> int:
     job = _ConsoleJob()
     with db.session() as conn:
         resumo = dispositivo.puxar(conn, args.porta, destino, importar=not args.sem_importar,
-                                   baud=args.baud, job=job)
+                                   baud=args.baud, job=job,
+                                   somente_listar=args.somente_listar)
+    if resumo.get("listados"):
+        como = resumo.get("comando_listagem") or "?"
+        print(f"\n{len(resumo['listados'])} arquivo(s) no cartão (via `{como}`):")
+        for item in resumo["listados"]:
+            tamanho = f"{item['tamanho']} B" if item["tamanho"] else "tamanho ?"
+            print(f"  {item['nome']:<28} {tamanho}")
     if resumo["erro"]:
-        print(f"✗ {resumo['erro']}")
+        print(f"\n✗ {resumo['erro']}")
+    if resumo.get("sem_leitura"):
+        print("  → o cartão continua sendo o caminho para o conteúdo; o app importa da pasta.")
     print(f"{len(resumo['baixados'])} baixado(s), {len(resumo['ignorados'])} já estava(m) aqui.")
     for nome in resumo["baixados"]:
         print(f"  + {nome}")
@@ -356,6 +368,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--diagnostico", action="store_true",
                    help="não baixa nada: mostra a resposta crua do firmware")
     p.add_argument("--comando", help="com --diagnostico, envia esta linha antes de ler (ex.: help)")
+    p.add_argument("--somente-listar", action="store_true",
+                   help="só mostra o que há no cartão, sem baixar nem importar")
     p.add_argument("--segundos", type=float, default=5.0,
                    help="tempo de escuta no diagnóstico (padrão: 5)")
     p.set_defaults(func=cmd_puxar)

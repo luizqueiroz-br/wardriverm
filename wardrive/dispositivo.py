@@ -143,36 +143,59 @@ def parse_listagem(linhas) -> list[dict]:
 class DispositivoSD:
     """Conversa com o firmware: lista o cartão e lê um arquivo de texto."""
 
-    def __init__(self, porta: Porta, *, comando_listar: str = "sd list",
+    #: comandos de listagem, na ordem em que são tentados. O Marauder v1.18 usa
+    #: `ls /` (saída `nome<TAB>tamanho`); forks mais velhos usam `sd list`.
+    CANDIDATOS_LISTAR = ("sd list", "ls /")
+
+    def __init__(self, porta: Porta, *, comando_listar: str = "auto",
                  comando_ler: str = "sd read {arquivo}", silencio: float = 2.0):
         self.porta = porta
         self.comando_listar = comando_listar
         self.comando_ler = comando_ler
         self.silencio = silencio
+        self.comando_listar_usado: str | None = None
 
     def listar(self) -> list[dict]:
-        self.porta.enviar(self.comando_listar)
-        linhas = self.porta.ler_ate_silencio(self.silencio)
-        arquivos = parse_listagem(linhas)
-        if not arquivos:
-            raise ErroDispositivo(
-                f"O firmware não devolveu nenhum arquivo para “{self.comando_listar}”. "
-                "Rode com --diagnostico para ver a resposta crua.")
-        return arquivos
+        candidatos = self.CANDIDATOS_LISTAR if self.comando_listar == "auto" \
+            else (self.comando_listar,)
+        tentativas = []
+        for comando in candidatos:
+            self.porta.enviar(comando)
+            linhas = self.porta.ler_ate_silencio(self.silencio)
+            arquivos = parse_listagem(linhas)
+            if arquivos:
+                self.comando_listar_usado = comando
+                return arquivos
+            tentativas.append(comando)
+        raise ErroDispositivo(
+            "O firmware não devolveu nenhum arquivo para "
+            + " nem ".join(f"“{c}”" for c in tentativas)
+            + ". Rode com --diagnostico --comando help para ver os comandos do seu firmware.")
+
+    #: a mensagem usada quando o firmware não tem como mandar o conteúdo
+    SEM_LEITURA = ("esta firmware lista o cartão mas não expõe leitura de arquivo pela serial "
+                   "(Marauder v1.18: só `ls`). Baixe os .log pelo cartão SD — o app importa da pasta.")
 
     def baixar(self, nome: str, destino: Path, *, tamanho_esperado: int | None = None) -> Path:
         if not nome.lower().endswith(EXTENSOES):
             raise ErroDispositivo(f"“{nome}” não é texto — baixe pelo cartão SD.")
         self.porta.enviar(self.comando_ler.format(arquivo=nome))
         linhas = self.porta.ler_ate_silencio(self.silencio, limite=600)
-        # o firmware costuma ecoar o comando; isso não é conteúdo do arquivo
+
+        # O console ecoa o comando prefixado de '#' ("#sd read x.log") e termina com
+        # o prompt ">". Nenhuma das duas coisas é conteúdo do arquivo.
         prefixo = self.comando_ler.split("{")[0].strip().lower()
-        conteudo = [linha for linha in linhas
-                    if linha.strip()
-                    and not linha.strip().lower().startswith(prefixo)
-                    and linha.strip().lower() != nome.lower()]
+
+        def eh_ruido(linha: str) -> bool:
+            texto = linha.strip().lstrip("#").strip().lower()
+            if not texto or texto.startswith(">"):
+                return True
+            return texto.startswith(prefixo) or texto == nome.lower()
+
+        conteudo = [linha for linha in linhas if not eh_ruido(linha)]
         if not conteudo:
-            raise ErroDispositivo(f"O arquivo {nome} voltou vazio.")
+            # firmware sem comando de leitura responde só o eco e o prompt
+            raise ErroDispositivo(self.SEM_LEITURA)
         destino.parent.mkdir(parents=True, exist_ok=True)
         temporario = destino.with_suffix(destino.suffix + ".parcial")
         temporario.write_text("\n".join(conteudo) + "\n", encoding="utf-8")
@@ -204,8 +227,8 @@ def _hash(caminho: Path) -> str:
 
 def puxar(conn, porta: str, destino: Path | str, *, importar: bool = True,
           baud: int = 115200, job=None, silencio: float = 2.0,
-          comando_listar: str = "sd list", comando_ler: str = "sd read {arquivo}",
-          porta_obj=None) -> dict:
+          comando_listar: str = "auto", comando_ler: str = "sd read {arquivo}",
+          porta_obj=None, somente_listar: bool = False) -> dict:
     """Lista o cartão, baixa só o que é novo e (por padrão) importa.
 
     Devolve `{"baixados": [...], "ignorados": [...], "arquivos": n, "importacao": {...}}`.
@@ -242,6 +265,11 @@ def puxar(conn, porta: str, destino: Path | str, *, importar: bool = True,
             + ("…" if len(arquivos) > 8 else ""))
         if job is not None:
             job.set_total(len(arquivos), "arquivos")
+        resumo["listados"] = arquivos
+        resumo["comando_listagem"] = aparelho.comando_listar_usado
+        if somente_listar:
+            log("só listando — nada foi baixado", "aviso")
+            return resumo
 
         for arquivo in arquivos:
             nome = arquivo["nome"]
@@ -258,11 +286,11 @@ def puxar(conn, porta: str, destino: Path | str, *, importar: bool = True,
             try:
                 caminho = aparelho.baixar(nome, alvo, tamanho_esperado=tamanho)
             except ErroDispositivo as erro:
-                resumo["erro"] = f"{nome}: {erro}"
-                log(f"{nome}: {erro}", "erro")
-                if job is not None:
-                    job.tick()
-                continue
+                # firmware sem comando de leitura: não adianta tentar os próximos
+                resumo["erro"] = str(erro)
+                log(str(erro), "erro")
+                resumo["sem_leitura"] = erro is not None and "não expõe leitura" in str(erro)
+                break
             hash_arquivo = _hash(caminho)
             conn.execute(
                 """INSERT INTO cartao_arquivos (nome, tamanho, sha256, baixado_em)
